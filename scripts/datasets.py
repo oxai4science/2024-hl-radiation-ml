@@ -168,6 +168,42 @@ class BioSentinel(Dataset):
             date = self.data[self.data['datetime'] < date]['datetime'].max()
             print('Adjusted date                : {}'.format(date))
             data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
-        data = data.values[0]
+        data = torch.tensor(data.values[0])
         return data
 
+
+class Sequences(Dataset):
+    def __init__(self, datasets, delta_minutes=1, sequence_length=10):
+        self.datasets = datasets
+        self.delta_minutes = delta_minutes
+        self.sequence_length = sequence_length
+
+        self.date_start = max([dataset.date_start for dataset in self.datasets])
+        self.date_end = min([dataset.date_end for dataset in self.datasets])
+        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes)
+
+        print('\nSequences')
+        print('Start date      : {}'.format(self.date_start))
+        print('End date        : {}'.format(self.date_end))
+        print('Delta           : {} minutes'.format(self.delta_minutes))
+        print('Sequence length : {}'.format(self.sequence_length))
+        print('Total sequences : {:,}'.format(self.length))
+
+    def __len__(self):
+        return self.length
+    
+    def __getitem__(self, index):
+        if not isinstance(index, int):
+            raise ValueError('Expecting index to be an integer')
+
+        all_data = []
+        date = self.date_start + datetime.timedelta(minutes=index*self.delta_minutes)
+        for dataset in self.datasets:
+            data = []
+            for i in range(self.sequence_length):
+                date += datetime.timedelta(minutes=self.delta_minutes)
+                d, _ = dataset[date]
+                data.append(d)
+            data = torch.stack(data)
+            all_data.append(data)
+        return tuple(all_data)

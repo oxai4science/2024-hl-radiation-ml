@@ -4,7 +4,7 @@ import pprint
 import time
 import datetime
 
-from datasets import SDOMLlite, BioSentinel
+from datasets import SDOMLlite, BioSentinel, Sequences
 
 
 def main():
@@ -27,17 +27,14 @@ def main():
     sdo = SDOMLlite(args.sdo_dir)
     biosentinel = BioSentinel(args.biosentinel_file)
 
+    sequences = Sequences([sdo, biosentinel], delta_minutes=1, sequence_length=10)
 
-    # print(biosentinel[1])
+
+    s = sequences[0]
     print()
-    print(biosentinel[datetime.datetime.fromisoformat('2022-11-16T11:33:00')])
-    print()
-    print(biosentinel[datetime.datetime.fromisoformat('2022-11-16T11:34:00')])
-    print()
-    print(biosentinel[datetime.datetime.fromisoformat('2022-11-16T11:35:00')])    
-    print()
-    print(biosentinel[datetime.datetime.fromisoformat('2022-11-16T11:36:00')])
-    # data = sdo[datetime.datetime.fromisoformat('2022-11-16T10:59:00')]
+    print(s[0].shape)
+    print(s[1].shape)
+
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
     print('Duration: {}'.format(datetime.datetime.now() - start_time))
