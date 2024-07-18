@@ -196,14 +196,18 @@ class Sequences(Dataset):
         if not isinstance(index, int):
             raise ValueError('Expecting index to be an integer')
 
+        sequence_start = self.date_start + datetime.timedelta(minutes=index*self.delta_minutes)
         all_data = []
-        date = self.date_start + datetime.timedelta(minutes=index*self.delta_minutes)
-        for dataset in self.datasets:
+        dates = []
+        for i, dataset in enumerate(self.datasets):
             data = []
-            for i in range(self.sequence_length):
-                date += datetime.timedelta(minutes=self.delta_minutes)
+            for j in range(self.sequence_length):
+                date = sequence_start + datetime.timedelta(minutes=j*self.delta_minutes)
                 d, _ = dataset[date]
                 data.append(d)
+                if i == 0:
+                    dates.append(date)
             data = torch.stack(data)
             all_data.append(data)
+        all_data.append(dates)
         return tuple(all_data)

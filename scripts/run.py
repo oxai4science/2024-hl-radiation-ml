@@ -26,14 +26,14 @@ def main():
 
     sdo = SDOMLlite(args.sdo_dir)
     biosentinel = BioSentinel(args.biosentinel_file)
-
-    sequences = Sequences([sdo, biosentinel], delta_minutes=1, sequence_length=10)
+    sequences = Sequences([sdo, biosentinel], delta_minutes=15, sequence_length=10)
 
 
     s = sequences[0]
     print()
     print(s[0].shape)
     print(s[1].shape)
+    print(s[2])
 
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
