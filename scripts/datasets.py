@@ -1,6 +1,5 @@
 import webdataset as wds
 import wids
-
 import torch
 from torch.utils.data import Dataset
 import numpy as np
@@ -22,7 +21,7 @@ class SDOMLlite(Dataset):
         print('\nSDOML-lite')
         print('Directory  : {}'.format(self.data_dir))
         print('Index      : {}'.format(index_file))
-        self.webdataset = wids.ShardListDataset(index_file)
+        self.webdataset = wids.ShardListDataset(index_file, cache_dir=None, cache_size=-1)
 
         date_start, date_end = self.find_date_range()
         self.date_start = date_start
@@ -94,6 +93,12 @@ class SDOMLlite(Dataset):
             # Adjust the date to the previous minute that is a multiple of 15
             date = date.replace(second=0, microsecond=0)
             date -= datetime.timedelta(minutes=date.minute % 15)
+            time_out = 100
+            while date not in self.date_to_index:
+                date -= datetime.timedelta(minutes=15)
+                time_out -= 1
+                if time_out == 0:
+                    raise ValueError('Timeout while searching for date in SDOML-lite: {}'.format(date))
             print('Adjusted date               : {}'.format(date))
             
         index = self.date_to_index[date]
@@ -198,16 +203,13 @@ class Sequences(Dataset):
 
         sequence_start = self.date_start + datetime.timedelta(minutes=index*self.delta_minutes)
         all_data = []
-        dates = []
-        for i, dataset in enumerate(self.datasets):
+        for dataset in self.datasets:
             data = []
-            for j in range(self.sequence_length):
-                date = sequence_start + datetime.timedelta(minutes=j*self.delta_minutes)
+            for i in range(self.sequence_length):
+                date = sequence_start + datetime.timedelta(minutes=i*self.delta_minutes)
                 d, _ = dataset[date]
                 data.append(d)
-                if i == 0:
-                    dates.append(date)
             data = torch.stack(data)
             all_data.append(data)
-        all_data.append(dates)
+        all_data.append('{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes)))
         return tuple(all_data)
