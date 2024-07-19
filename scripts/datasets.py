@@ -82,7 +82,7 @@ class SDOMLlite(Dataset):
             # Adjust the date to the previous minute that is a multiple of 15
             date = date.replace(second=0, microsecond=0)
             date -= datetime.timedelta(minutes=date.minute % 15)
-            time_out = 10
+            time_out = 50
             date_not_found = date
             while date not in self.dates:
                 date = date - datetime.timedelta(minutes=15)
