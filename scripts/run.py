@@ -73,7 +73,7 @@ def main():
     train_loader = DataLoader(sequences_train, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     # valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = SDOSequence(channels=len(sdo.channels), embedding_dim=512, sequence_length=args.sequence_length)
+    model = SDOSequence(channels=len(sdo_train.channels), embedding_dim=512, sequence_length=args.sequence_length)
     model = model.to(device)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
