@@ -175,7 +175,7 @@ class Sequences(Dataset):
         self.date_end = min([dataset.date_end for dataset in self.datasets])
         if self.date_start > self.date_end:
             raise ValueError('No overlapping date range between datasets')
-        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes) - self.sequence_length + 1
+        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes) - self.sequence_length
 
         print('\nSequences')
         print('Start date      : {}'.format(self.date_start))
