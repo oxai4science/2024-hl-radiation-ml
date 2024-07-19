@@ -14,62 +14,52 @@ class SDOMLlite(Dataset):
     def __init__(self, data_dir, channels=['hmi_m', 'aia_0094', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']):
         self.data_dir = data_dir
         self.channels = channels
-        index_file = glob(os.path.join(data_dir, '*.json'))
-        if len(index_file) == 0:
-            raise RuntimeError('No index file (.json) found')
-        index_file = index_file[0]
         print('\nSDOML-lite')
         print('Directory  : {}'.format(self.data_dir))
-        print('Index      : {}'.format(index_file))
-        self.webdataset = wids.ShardListDataset(index_file, cache_dir=None, cache_size=-1)
 
-        date_start, date_end = self.find_date_range()
-        self.date_start = date_start
-        self.date_end = date_end
+        self.date_start, self.date_end = self.find_date_range()
         self.delta_minutes = 15
+        total_minutes = int((self.date_end - self.date_start).total_seconds() / 60)
+        total_steps = total_minutes // self.delta_minutes
         print('Start date : {}'.format(self.date_start))
         print('End date   : {}'.format(self.date_end))
         print('Delta      : {} minutes'.format(self.delta_minutes))
         print('Channels   : {}'.format(', '.join(self.channels)))
-        
-        self.channels_webdataset_keys = ['.'+c+'.npy' for c in self.channels]
-        
-        self.date_to_index = {}
+
         self.dates = []
         dates_cache = os.path.join(self.data_dir, 'dates_cache_{}'.format('_'.join(self.channels)))
         if os.path.exists(dates_cache):
             print('Loading dates from cache: {}'.format(dates_cache))
-            self.dates, self.date_to_index = torch.load(dates_cache)
-        else:
-            for i in tqdm(range(len(self.webdataset)), desc='Checking complete channels'):
-                cs = self.webdataset[i].keys()
-                has_all_channels = True
-                for c in self.channels_webdataset_keys:
-                    if c not in cs:
-                        has_all_channels = False
+            self.dates = torch.load(dates_cache)
+        else:        
+            for i in tqdm(range(total_steps), desc='Checking complete channels'):
+                date = self.date_start + datetime.timedelta(minutes=self.delta_minutes*i)
+                exists = True
+                for channel in self.channels:
+                    file = os.path.join(self.data_dir, date.strftime('%Y/%m/%d/%H%M') +'.'+channel+'.npy')
+                    if not os.path.exists(file):
+                        exists = False
                         break
-                if has_all_channels:
-                    date = self.get_date(i)
+                if exists:
                     self.dates.append(date)
-                    self.date_to_index[date] = i
             print('Saving dates to cache: {}'.format(dates_cache))
-            torch.save((self.dates, self.date_to_index), dates_cache)            
+            torch.save(self.dates, dates_cache)
 
         if len(self.dates) == 0:
             raise RuntimeError('No frames found with given list of channels')
-                
-        print('Frames total    : {:,}'.format(len(self.webdataset)))
+        
+        print('Frames total    : {:,}'.format(total_steps))
         print('Frames available: {:,}'.format(len(self.dates)))
-        print('Frames dropped  : {:,}'.format(len(self.webdataset) - len(self.dates)))                
-           
-    def get_date(self, index):
-        return datetime.datetime.strptime(self.webdataset[index]['__key__'], '%Y/%m/%d/%H%M')
-    
+        print('Frames dropped  : {:,}'.format(total_steps - len(self.dates)))
+
     def find_date_range(self):
-        date_start = self.get_date(0)
-        date_end = self.get_date(len(self.webdataset)-1) # wids doesn't support -1 indexing
+        all_files = sorted(glob(os.path.join(self.data_dir,'**','*.npy'), recursive=True))
+        if len(all_files) == 0:
+            raise RuntimeError('No .npy files found in the directory')
+        date_start = datetime.datetime.strptime(os.path.relpath(all_files[0], self.data_dir).split('.')[0], '%Y/%m/%d/%H%M')
+        date_end = datetime.datetime.strptime(os.path.relpath(all_files[-1], self.data_dir).split('.')[0], '%Y/%m/%d/%H%M')
         return date_start, date_end
-    
+
     def __len__(self):
         return len(self.dates)
     
@@ -87,29 +77,29 @@ class SDOMLlite(Dataset):
     
     def get_data(self, date):
         if date < self.date_start or date > self.date_end:
-            raise ValueError('Date () out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
-        if date not in self.date_to_index:
-            print('Date not found in SDOML-lite: {}'.format(date))
+            raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
+
+        if date not in self.dates:
+            print('Date not found in SDOML-lite : {}'.format(date))
             # Adjust the date to the previous minute that is a multiple of 15
             date = date.replace(second=0, microsecond=0)
             date -= datetime.timedelta(minutes=date.minute % 15)
-            time_out = 100
-            while date not in self.date_to_index:
+            time_out = 10
+            while date not in self.dates:
                 date -= datetime.timedelta(minutes=15)
                 time_out -= 1
                 if time_out == 0:
                     raise ValueError('Timeout while searching for date in SDOML-lite: {}'.format(date))
-            print('Adjusted date               : {}'.format(date))
-            
-        index = self.date_to_index[date]
-        data = self.webdataset[index]
+            print('Adjusted date                : {}'.format(date))    
+
         channels = []
-        for c in self.channels_webdataset_keys:
-            channels.append(data[c])
+        for channel in self.channels:
+            file = os.path.join(self.data_dir, date.strftime('%Y/%m/%d/%H%M') +'.'+channel+'.npy')
+            channel_data = np.load(file)
+            channels.append(channel_data)
         channels = np.stack(channels)
         channels = torch.from_numpy(channels)
         return channels
-    
 
 
 class BioSentinel(Dataset):
@@ -164,7 +154,7 @@ class BioSentinel(Dataset):
 
     def get_data(self, date):
         if date < self.date_start or date > self.date_end:
-            raise ValueError('Date () out of range for BioSentinel ({} - {})'.format(date, self.date_start, self.date_end))        
+            raise ValueError('Date ({}) out of range for BioSentinel ({} - {})'.format(date, self.date_start, self.date_end))        
 
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         if len(data) == 0:
@@ -185,7 +175,9 @@ class Sequences(Dataset):
 
         self.date_start = max([dataset.date_start for dataset in self.datasets])
         self.date_end = min([dataset.date_end for dataset in self.datasets])
-        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes)
+        if self.date_start > self.date_end:
+            raise ValueError('No overlapping date range between datasets')
+        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes) - self.sequence_length + 1
 
         print('\nSequences')
         print('Start date      : {}'.format(self.date_start))
