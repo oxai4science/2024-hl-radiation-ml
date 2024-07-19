@@ -83,8 +83,8 @@ class SDOMLlite(Dataset):
             date = date.replace(second=0, microsecond=0)
             date -= datetime.timedelta(minutes=date.minute % 15)
             time_out = 10
+            date_not_found = date
             while date not in self.dates:
-                date_not_found = date
                 date -= datetime.timedelta(minutes=15)
                 time_out -= 1
                 if time_out == 0:
