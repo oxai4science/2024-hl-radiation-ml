@@ -85,7 +85,7 @@ class SDOMLlite(Dataset):
             time_out = 10
             date_not_found = date
             while date not in self.dates:
-                date -= datetime.timedelta(minutes=15)
+                date = date - datetime.timedelta(minutes=15)
                 time_out -= 1
                 if time_out == 0:
                     raise ValueError('Timeout while searching for date in SDOML-lite: {}, went back until {}'.format(date_not_found, date))
