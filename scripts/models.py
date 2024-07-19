@@ -31,7 +31,7 @@ class SDOEmbedding(nn.Module):
     
 
 class SDOSequence(nn.Module):
-    def __init__(self, channels=7, embedding_dim=512, sequence_length=10):
+    def __init__(self, channels=6, embedding_dim=512, sequence_length=10):
         super().__init__()
         self.sdo_embedding = SDOEmbedding(channels=channels, embedding_dim=embedding_dim)
         self.fc1 = nn.Linear(sequence_length*embedding_dim, 512)
