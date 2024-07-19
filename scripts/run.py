@@ -8,10 +8,13 @@ import random
 import numpy as np
 from torch.utils.data import DataLoader, random_split
 import torch.optim as optim
+import matplotlib
+import matplotlib.pyplot as plt
 
 from datasets import SDOMLlite, BioSentinel, Sequences
 from models import SDOSequence
 
+matplotlib.use('Agg')
 
 def seed(seed=None):
     if seed is None:
@@ -115,6 +118,21 @@ def main():
         valid_losses.append((iteration, valid_loss))
 
             
+        print('Epoch: {:,} | Valid loss: {:.4f}'.format(epoch+1, valid_loss))
+
+        # Save model
+        model_file = '{}/model-epoch-{}.pth'.format(args.target_dir, epoch+1)
+        print('Saving model to {}'.format(model_file))
+        torch.save(model.state_dict(), model_file)
+
+        # Plot losses
+        plt.figure()
+        plt.plot(*zip(*train_losses), label='Train')
+        plt.plot(*zip(*valid_losses), label='Valid')
+        plt.xlabel('Iteration')
+        plt.ylabel('Loss')
+        plt.legend()
+        plt.savefig('{}/loss-epoch-{}.png'.format(args.target_dir, epoch+1))
 
 
 
