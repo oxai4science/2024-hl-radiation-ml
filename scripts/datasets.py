@@ -84,10 +84,11 @@ class SDOMLlite(Dataset):
             date -= datetime.timedelta(minutes=date.minute % 15)
             time_out = 10
             while date not in self.dates:
+                date_not_found = date
                 date -= datetime.timedelta(minutes=15)
                 time_out -= 1
                 if time_out == 0:
-                    raise ValueError('Timeout while searching for date in SDOML-lite: {}'.format(date))
+                    raise ValueError('Timeout while searching for date in SDOML-lite: {}, went back until {}'.format(date_not_found, date))
             # print('Adjusted date                : {}'.format(date))    
 
         channels = []
