@@ -55,9 +55,14 @@ def main():
     seed(args.seed)
     device = torch.device(args.device)
 
-    sdo = SDOMLlite(args.sdo_dir)
-    biosentinel = BioSentinel(args.biosentinel_file)
-    sequences = Sequences([sdo, biosentinel], delta_minutes=15, sequence_length=10)
+    sdo_train = SDOMLlite(args.sdo_dir, date_end='2024-04-01')
+    sdo_valid = SDOMLlite(args.sdo_dir, date_start='2024-04-01')
+
+    biosentinel_train = BioSentinel(args.biosentinel_file, date_end='2024-04-01')
+    biosentinel_valid = BioSentinel(args.biosentinel_file, date_start='2024-04-01')
+
+    sequences_train = Sequences([sdo_train, biosentinel_train], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    sequences_valid = Sequences([sdo_valid, biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
     # valid_size = int(len(sequences) * args.valid_proportion)
     # train_size = len(sequences) - valid_size
@@ -65,7 +70,7 @@ def main():
     # print('\nTrain size: {:,}'.format(len(train_dataset)))
     # print('Valid size: {:,}'.format(len(valid_dataset)))
 
-    train_loader = DataLoader(sequences, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    train_loader = DataLoader(sequences_train, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     # valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     model = SDOSequence(channels=len(sdo.channels), embedding_dim=512, sequence_length=args.sequence_length)

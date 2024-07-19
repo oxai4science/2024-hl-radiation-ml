@@ -9,13 +9,25 @@ import pandas as pd
 
 
 class SDOMLlite(Dataset):
-    def __init__(self, data_dir, channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']):
+    def __init__(self, data_dir, channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'], date_start=None, date_end=None):
         self.data_dir = data_dir
         self.channels = channels
         print('\nSDOML-lite')
         print('Directory  : {}'.format(self.data_dir))
 
         self.date_start, self.date_end = self.find_date_range()
+        if date_start is not None:
+            date_start = datetime.datetime.fromisoformat(date_start)
+            if (date_start >= self.date_start) and (date_start < self.date_end):
+                self.date_start = date_start
+            else:
+                print('Start date out of range, using default')
+        if date_end is not None:
+            date_end = datetime.datetime.fromisoformat(date_end)
+            if (date_end > self.date_start) and (date_end <= self.date_end):
+                self.date_end = date_end
+            else:
+                print('End date out of range, using default')
         self.delta_minutes = 15
         total_minutes = int((self.date_end - self.date_start).total_seconds() / 60)
         total_steps = total_minutes // self.delta_minutes
@@ -222,4 +234,4 @@ class Sequences(IterableDataset):
                 all_data.append(sequence_name)
                 yield tuple(all_data)
             else:
-                print('Skipping sequence: {}'.format(sequence_name))
+                print('Skipping sequence            : {}'.format(sequence_name))
