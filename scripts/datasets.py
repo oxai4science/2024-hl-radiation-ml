@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, IterableDataset
 import numpy as np
 from glob import glob
 import os
@@ -80,16 +80,14 @@ class SDOMLlite(Dataset):
         if date not in self.dates:
             print('Date not found in SDOML-lite : {}'.format(date))
             # Adjust the date to the previous minute that is a multiple of 15
-            date = date.replace(second=0, microsecond=0)
-            date -= datetime.timedelta(minutes=date.minute % 15)
-            time_out = 50
-            date_not_found = date
-            while date not in self.dates:
-                date = date - datetime.timedelta(minutes=15)
-                time_out -= 1
-                if time_out == 0:
-                    raise ValueError('Timeout while searching for date in SDOML-lite: {}, went back until {}'.format(date_not_found, date))
-            print('Adjusted date                : {}'.format(date))    
+            newdate = date.replace(second=0, microsecond=0)
+            newdate -= datetime.timedelta(minutes=date.minute % 15)
+            if newdate == date:
+                return None
+            print('Adjusted date                : {}'.format(newdate))    
+            if date not in self.dates:
+                print('Date not found in SDOML-lite : {}'.format(date))
+                return None
 
         channels = []
         for channel in self.channels:
@@ -158,16 +156,22 @@ class BioSentinel(Dataset):
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         if len(data) == 0:
             print('Date not found in BioSentinel: {}'.format(date))
-            # find the date in datetime column that is previous to the given date
-            date = self.data[self.data['datetime'] < date]['datetime'].max()
-            print('Adjusted date                : {}'.format(date))
-            data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
+            # adjust the date to the previous full minute
+            newdate = date.replace(second=0, microsecond=0)
+            if newdate == date:
+                return None
+            print('Adjusted date                : {}'.format(newdate))
+            data = self.data[self.data['datetime'] == newdate]['absorbed_dose_rate']
+            if len(data) == 0:
+                print('Date not found in BioSentinel: {}'.format(date))
+                return None
         data = torch.tensor(data.values[0])
         return data
 
 
-class Sequences(Dataset):
+class Sequences(IterableDataset):
     def __init__(self, datasets, delta_minutes=1, sequence_length=10):
+        super().__init__()
         self.datasets = datasets
         self.delta_minutes = delta_minutes
         self.sequence_length = sequence_length
@@ -179,28 +183,40 @@ class Sequences(Dataset):
         self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes) - self.sequence_length
 
         print('\nSequences')
-        print('Start date      : {}'.format(self.date_start))
-        print('End date        : {}'.format(self.date_end))
-        print('Delta           : {} minutes'.format(self.delta_minutes))
-        print('Sequence length : {}'.format(self.sequence_length))
-        print('Total sequences : {:,}'.format(self.length))
+        print('Start date              : {}'.format(self.date_start))
+        print('End date                : {}'.format(self.date_end))
+        print('Delta                   : {} minutes'.format(self.delta_minutes))
+        print('Sequence length         : {}'.format(self.sequence_length))
+        print('Total possible sequences: {:,}'.format(self.length))
+        print('end', self.date_start + datetime.timedelta(minutes=self.length*self.delta_minutes + self.sequence_length*self.delta_minutes))
 
-    def __len__(self):
-        return self.length
-    
-    def __getitem__(self, index):
-        if not isinstance(index, int):
-            raise ValueError('Expecting index to be an integer')
-
-        sequence_start = self.date_start + datetime.timedelta(minutes=index*self.delta_minutes)
-        all_data = []
-        for dataset in self.datasets:
-            data = []
-            for i in range(self.sequence_length):
-                date = sequence_start + datetime.timedelta(minutes=i*self.delta_minutes)
-                d, _ = dataset[date]
-                data.append(d)
-            data = torch.stack(data)
-            all_data.append(data)
-        all_data.append('{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes)))
-        return tuple(all_data)
+    def __iter__(self):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            iter_start = 0
+            iter_end = self.length
+        else:
+            per_worker = self.length // worker_info.num_workers
+            worker_id = worker_info.id
+            iter_start = worker_id * per_worker
+            iter_end = iter_start + per_worker
+            if worker_id == worker_info.num_workers - 1:
+                iter_end = self.length
+        for i in range(iter_start, iter_end):
+            sequence_start = self.date_start + datetime.timedelta(minutes=i*self.delta_minutes)
+            all_data = []
+            for dataset in self.datasets:
+                data = []
+                for j in range(self.sequence_length):
+                    date = sequence_start + datetime.timedelta(minutes=j*self.delta_minutes)
+                    d, _ = dataset[date]
+                    if d is None:
+                        break
+                    data.append(d)
+                if len(data) < self.sequence_length:
+                    break
+                data = torch.stack(data)
+                all_data.append(data)
+            if len(all_data) == len(self.datasets):
+                all_data.append('{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes)))
+                yield tuple(all_data)
