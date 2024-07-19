@@ -3,7 +3,7 @@ import torch.nn as nn
 
 
 class SDOEmbedding(nn.Module):
-    def __init__(self, channels=7, embedding_dim=512):
+    def __init__(self, channels=6, embedding_dim=512):
         super().__init__()
         self.embedding_dim = embedding_dim
         self.cnn1 = nn.Conv2d(channels, 64, 3)
