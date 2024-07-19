@@ -78,7 +78,7 @@ class SDOMLlite(Dataset):
             raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
 
         if date not in self.dates:
-            print('Date not found in SDOML-lite : {}'.format(date))
+            # print('Date not found in SDOML-lite : {}'.format(date))
             # Adjust the date to the previous minute that is a multiple of 15
             date = date.replace(second=0, microsecond=0)
             date -= datetime.timedelta(minutes=date.minute % 15)
@@ -88,7 +88,7 @@ class SDOMLlite(Dataset):
                 time_out -= 1
                 if time_out == 0:
                     raise ValueError('Timeout while searching for date in SDOML-lite: {}'.format(date))
-            print('Adjusted date                : {}'.format(date))    
+            # print('Adjusted date                : {}'.format(date))    
 
         channels = []
         for channel in self.channels:
@@ -156,10 +156,10 @@ class BioSentinel(Dataset):
 
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         if len(data) == 0:
-            print('Date not found in BioSentinel: {}'.format(date))
+            # print('Date not found in BioSentinel: {}'.format(date))
             # find the date in datetime column that is previous to the given date
             date = self.data[self.data['datetime'] < date]['datetime'].max()
-            print('Adjusted date                : {}'.format(date))
+            # print('Adjusted date                : {}'.format(date))
             data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         data = torch.tensor(data.values[0])
         return data
