@@ -217,6 +217,9 @@ class Sequences(IterableDataset):
                     break
                 data = torch.stack(data)
                 all_data.append(data)
+            sequence_name = '{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes))
             if len(all_data) == len(self.datasets):
-                all_data.append('{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes)))
+                all_data.append(sequence_name)
                 yield tuple(all_data)
+            else:
+                print('Skipping sequence: {}'.format(sequence_name))
