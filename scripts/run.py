@@ -40,7 +40,7 @@ def main():
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
-    parser.add_argument('--valid_every', type=int, default=250, help='Validation frequency in iterations')
+    parser.add_argument('--valid_proportion', type=float, default=0.1, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
 
     args = parser.parse_args()
@@ -59,22 +59,24 @@ def main():
     # make sure the target directory exists
     os.makedirs(args.target_dir, exist_ok=True)
 
-    sdo_train = SDOMLlite(args.sdo_dir, date_end='2024-05-01')
-    sdo_valid = SDOMLlite(args.sdo_dir, date_start='2024-05-01')
+    date_start = '2024-01-16T11:00:00'
+    date_end = '2024-02-14T19:30:00'
+    sdo = SDOMLlite(args.sdo_dir)
+    biosentinel = BioSentinel(args.biosentinel_file, normalize=True, date_start=date_start, date_end=date_end)
+    sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
-    biosentinel_train = BioSentinel(args.biosentinel_file, date_end='2024-05-01', normalize=True)
-    biosentinel_valid = BioSentinel(args.biosentinel_file, date_start='2024-05-01', normalize=True)
+    # Split sequences into train and validation
+    valid_size = int(args.valid_proportion * len(sequences))
+    train_size = len(sequences) - valid_size
+    sequences_train, sequences_valid = random_split(sequences, [train_size, valid_size])
 
-    sequences_train = Sequences([sdo_train, biosentinel_train], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length, shuffle=True)
-    sequences_valid = Sequences([sdo_valid, biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    print('\nTrain size: {:,}'.format(len(sequences_train)))
+    print('Valid size: {:,}'.format(len(sequences_valid)))
 
-    print('\nTrain size: {:,}'.format(sequences_train.length))
-    print('Valid size: {:,}'.format(sequences_valid.length))
-
-    train_loader = DataLoader(sequences_train, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+    train_loader = DataLoader(sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     valid_loader = DataLoader(sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-    model = SDOSequence(channels=len(sdo_train.channels), embedding_dim=512, sequence_length=args.sequence_length)
+    model = SDOSequence(channels=len(sdo.channels), embedding_dim=512, sequence_length=args.sequence_length)
     model = model.to(device)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -86,13 +88,15 @@ def main():
     train_losses = []
     valid_losses = []
     for epoch in range(args.epochs):
-        for sdo, biosentinel, _ in train_loader:
+        for i, (sdo, biosentinel, _) in enumerate(train_loader):
+            # print('move data to device', flush=True)
             sdo = sdo.to(device)
             biosentinel = biosentinel.to(device)
 
             input = sdo
             target = biosentinel[:, -1].unsqueeze(1)
 
+            # print('run model', flush=True)
             optimizer.zero_grad()
             output = model(input)
             loss = torch.nn.functional.mse_loss(output, target)
@@ -100,49 +104,53 @@ def main():
             optimizer.step()
 
             train_losses.append((iteration, float(loss)))
-            print('Epoch: {:,} | Iter: {:,} | Loss: {:.4f}'.format(epoch+1, iteration, float(loss)))
+            print('Epoch: {:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, i+1, len(train_loader), float(loss)))
 
-            if iteration % args.valid_every == 0:
-                print('Validation', end=' ')
-                with torch.no_grad():
-                    valid_loss = 0.
-                    valid_seqs = 0
-                    for sdo, biosentinel, _ in valid_loader:
-                        sdo = sdo.to(device)
-                        biosentinel = biosentinel.to(device)
-
-                        input = sdo
-                        target = biosentinel[:, -1].unsqueeze(1)
-
-                        output = model(input)
-                        loss = torch.nn.functional.mse_loss(output, target)
-                        valid_loss += float(loss)
-                        valid_seqs += 1
-
-                    valid_loss /= valid_seqs
-                    print('Epoch: {:,} | Iter: {:,} | Valid loss: {:.4f}'.format(epoch+1, iteration, valid_loss))
-                    valid_losses.append((iteration, valid_loss))
-                
-
-                # Save model
-                model_file = '{}/model_iter_{}.pth'.format(args.target_dir, iteration)
-                print('Saving model to {}'.format(model_file))
-                torch.save(model.state_dict(), model_file)
-
-                # Plot losses
-                plot_file = '{}/loss_iter_{}.pdf'.format(args.target_dir, iteration)
-                print('Saving plot to {}'.format(plot_file))
-                plt.figure()
-                plt.plot(*zip(*train_losses), label='Training')
-                plt.plot(*zip(*valid_losses), label='Validation')
-                plt.xlabel('Iteration')
-                plt.ylabel('Loss')
-                plt.yscale('log')
-                plt.legend()
-                plt.tight_layout()
-                plt.savefig(plot_file)
-
+            # print('getting data', flush=True)
+            # if iteration % args.valid_every == 0:
             iteration += 1
+
+        print('Validation', end=' ')
+        with torch.no_grad():
+            valid_loss = 0.
+            valid_seqs = 0
+            for sdo, biosentinel, _ in valid_loader:
+                print('.', end='', flush=True)
+                sdo = sdo.to(device)
+                biosentinel = biosentinel.to(device)
+
+                input = sdo
+                target = biosentinel[:, -1].unsqueeze(1)
+
+                output = model(input)
+                loss = torch.nn.functional.mse_loss(output, target)
+                valid_loss += float(loss)
+                valid_seqs += 1
+
+            valid_loss /= valid_seqs
+            print('Epoch: {:,} | Iter: {:,} | Valid loss: {:.4f}'.format(epoch+1, iteration, valid_loss))
+            valid_losses.append((iteration, valid_loss))
+        
+
+        # Save model
+        model_file = '{}/model_epoch_{}.pth'.format(args.target_dir, epoch+1)
+        print('Saving model to {}'.format(model_file))
+        torch.save(model.state_dict(), model_file)
+
+        # Plot losses
+        plot_file = '{}/loss_epoch_{}.pdf'.format(args.target_dir, epoch+1)
+        print('Saving plot to {}'.format(plot_file))
+        plt.figure()
+        plt.plot(*zip(*train_losses), label='Training')
+        plt.plot(*zip(*valid_losses), label='Validation')
+        plt.xlabel('Iteration')
+        plt.ylabel('Loss')
+        plt.yscale('log')
+        plt.legend()
+        plt.grid(color='#f0f0f0', zorder=0)
+        plt.tight_layout()
+        plt.savefig(plot_file)
+
 
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))

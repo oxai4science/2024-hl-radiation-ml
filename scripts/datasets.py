@@ -36,6 +36,10 @@ class SDOMLlite(Dataset):
         print('Delta      : {} minutes'.format(self.delta_minutes))
         print('Channels   : {}'.format(', '.join(self.channels)))
 
+        # convert 2022-11-06 00:01:00+00:00 to datetime.datetime(2022, 11, 6, 0, 1)
+        datetime.datetime.fromisoformat('2022-11-06T00:01:00+00:00')
+
+
         self.dates = []
         dates_cache = os.path.join(self.data_dir, 'dates_cache_{}_{}_'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
         if os.path.exists(dates_cache):
@@ -57,7 +61,9 @@ class SDOMLlite(Dataset):
 
         if len(self.dates) == 0:
             raise RuntimeError('No frames found with given list of channels')
-        
+
+        self.dates_set = set(self.dates)
+
         print('Frames total    : {:,}'.format(total_steps))
         print('Frames available: {:,}'.format(len(self.dates)))
         print('Frames dropped  : {:,}'.format(total_steps - len(self.dates)))
@@ -89,17 +95,9 @@ class SDOMLlite(Dataset):
         if date < self.date_start or date > self.date_end:
             raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
 
-        if date not in self.dates:
-            # print('Date not found in SDOML-lite : {}'.format(date))
-            # Adjust the date to the previous minute that is a multiple of 15
-            newdate = date.replace(second=0, microsecond=0)
-            newdate -= datetime.timedelta(minutes=date.minute % 15)
-            if newdate == date:
-                return None
-            # print('Adjusted date                : {}'.format(newdate))    
-            if date not in self.dates:
-                # print('Date not found in SDOML-lite : {}'.format(date))
-                return None
+        if date not in self.dates_set:
+            print('Date not found in SDOML-lite : {}'.format(date))
+            return None
 
         channels = []
         for channel in self.channels:
@@ -125,17 +123,16 @@ class BioSentinel(Dataset):
         print('End date  : {}'.format(self.date_end))
         print('Delta     : {} minutes'.format(self.delta_minutes))
         self.data = self.process_data(data_file)
-
+        self.dates = [date.to_pydatetime() for date in self.data['datetime']]
+        self.dates_set = set(self.dates)
 
     def process_data(self, data_file):
         data = pd.read_csv(data_file)
         print('Rows before filtering: {:,}'.format(len(data)))
-        data['datetime'] = pd.to_datetime(data['timestamp_utc'])
-        # make np.datetime64
-        data['datetime'] = data['datetime'].values.astype('datetime64[m]')
+        data['datetime'] = pd.to_datetime(data['timestamp_utc']).dt.tz_localize(None)
 
         # filter out rows before start date and after end date
-        data = data[(data['datetime'] >= self.date_start) & (data['datetime'] <= self.date_end)]
+        data = data[(data['datetime'] >=self.date_start) & (data['datetime'] <=self.date_end)]
         # erase all columns except absorbed_dose_rate and datetime
         data = data[['datetime', 'absorbed_dose_rate']]
         
@@ -172,18 +169,13 @@ class BioSentinel(Dataset):
         if date < self.date_start or date > self.date_end:
             raise ValueError('Date ({}) out of range for BioSentinel ({} - {})'.format(date, self.date_start, self.date_end))        
 
+        if date not in self.dates_set:
+            print('Date not found in BioSentinel : {}'.format(date))
+            return None
+
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         if len(data) == 0:
-            # print('Date not found in BioSentinel: {}'.format(date))
-            # adjust the date to the previous full minute
-            newdate = date.replace(second=0, microsecond=0)
-            if newdate == date:
-                return None
-            # print('Adjusted date                : {}'.format(newdate))
-            data = self.data[self.data['datetime'] == newdate]['absorbed_dose_rate']
-            if len(data) == 0:
-                # print('Date not found in BioSentinel: {}'.format(date))
-                return None
+            raise RuntimeError('Should not happen')
         data = torch.tensor(data.values[0])
         if self.normalize:
             data = self.normalize_data(data)
@@ -191,64 +183,63 @@ class BioSentinel(Dataset):
         return data
 
 
-class Sequences(IterableDataset):
-    def __init__(self, datasets, delta_minutes=1, sequence_length=10, shuffle=False):
+class Sequences(Dataset):
+    def __init__(self, datasets, delta_minutes=1, sequence_length=10):
         super().__init__()
         self.datasets = datasets
         self.delta_minutes = delta_minutes
         self.sequence_length = sequence_length
-        self.shuffle = shuffle
 
         self.date_start = max([dataset.date_start for dataset in self.datasets])
         self.date_end = min([dataset.date_end for dataset in self.datasets])
         if self.date_start > self.date_end:
             raise ValueError('No overlapping date range between datasets')
-        self.length = int(((self.date_end - self.date_start).total_seconds() / 60) // self.delta_minutes) - self.sequence_length
+        self.sequences = self.find_sequences()
 
         print('\nSequences')
         print('Start date              : {}'.format(self.date_start))
         print('End date                : {}'.format(self.date_end))
         print('Delta                   : {} minutes'.format(self.delta_minutes))
         print('Sequence length         : {}'.format(self.sequence_length))
-        print('Total possible sequences: {:,}'.format(self.length))
-        print('end', self.date_start + datetime.timedelta(minutes=self.length*self.delta_minutes + self.sequence_length*self.delta_minutes))
+        print('Number of sequences     : {:,}'.format(len(self.sequences)))
 
-    def __iter__(self):
-        worker_info = torch.utils.data.get_worker_info()
-        if worker_info is None:
-            iter_start = 0
-            iter_end = self.length
-        else:
-            per_worker = self.length // worker_info.num_workers
-            worker_id = worker_info.id
-            iter_start = worker_id * per_worker
-            iter_end = iter_start + per_worker
-            if worker_id == worker_info.num_workers - 1:
-                iter_end = self.length
+    def __len__(self):
+        return len(self.sequences)
+    
+    def __getitem__(self, index):
+        # print('constructing sequence')
+        sequence = self.sequences[index]
 
-        indices = list(range(iter_start, iter_end))
-        if self.shuffle:
-            np.random.shuffle(indices)
+        all_data = []
+        for dataset in self.datasets:
+            data = []
+            for date in sequence:
+                d, _ = dataset[date]
+                data.append(d)
+            data = torch.stack(data)
+            all_data.append(data)
+        sequence_name = sequence[0].isoformat() + '-' + sequence[-1].isoformat()
+        all_data.append(sequence_name)
+        # print('done constructing sequence')
+        return tuple(all_data)
 
-        for i in indices:
-            sequence_start = self.date_start + datetime.timedelta(minutes=i*self.delta_minutes)
-            all_data = []
-            for dataset in self.datasets:
-                data = []
-                for j in range(self.sequence_length):
-                    date = sequence_start + datetime.timedelta(minutes=j*self.delta_minutes)
-                    d, _ = dataset[date]
-                    if d is None:
+
+    def find_sequences(self):
+        sequences = []
+        sequence_start = self.date_start
+        while sequence_start < self.date_end - datetime.timedelta(minutes=self.sequence_length*self.delta_minutes):
+            sequence = []
+            sequence_available = True
+            for i in range(self.sequence_length):
+                date = sequence_start + datetime.timedelta(minutes=i*self.delta_minutes)
+                for dataset in self.datasets:
+                    if date not in dataset.dates_set:
+                        sequence_available = False
                         break
-                    data.append(d)
-                if len(data) < self.sequence_length:
+                if not sequence_available:
                     break
-                data = torch.stack(data)
-                all_data.append(data)
-            sequence_name = '{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes))
-            # print(sequence_name)
-            if len(all_data) == len(self.datasets):
-                all_data.append(sequence_name)
-                yield tuple(all_data)
-            # else:
-                # print('Skipping sequence            : {}'.format(sequence_name))
+                sequence.append(date)
+            if sequence_available:
+                sequences.append(sequence)
+            sequence_start += datetime.timedelta(minutes=self.delta_minutes)
+        return sequences
