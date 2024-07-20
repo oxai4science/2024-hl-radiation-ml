@@ -90,15 +90,15 @@ class SDOMLlite(Dataset):
             raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
 
         if date not in self.dates:
-            print('Date not found in SDOML-lite : {}'.format(date))
+            # print('Date not found in SDOML-lite : {}'.format(date))
             # Adjust the date to the previous minute that is a multiple of 15
             newdate = date.replace(second=0, microsecond=0)
             newdate -= datetime.timedelta(minutes=date.minute % 15)
             if newdate == date:
                 return None
-            print('Adjusted date                : {}'.format(newdate))    
+            # print('Adjusted date                : {}'.format(newdate))    
             if date not in self.dates:
-                print('Date not found in SDOML-lite : {}'.format(date))
+                # print('Date not found in SDOML-lite : {}'.format(date))
                 return None
 
         channels = []
@@ -167,15 +167,15 @@ class BioSentinel(Dataset):
 
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
         if len(data) == 0:
-            print('Date not found in BioSentinel: {}'.format(date))
+            # print('Date not found in BioSentinel: {}'.format(date))
             # adjust the date to the previous full minute
             newdate = date.replace(second=0, microsecond=0)
             if newdate == date:
                 return None
-            print('Adjusted date                : {}'.format(newdate))
+            # print('Adjusted date                : {}'.format(newdate))
             data = self.data[self.data['datetime'] == newdate]['absorbed_dose_rate']
             if len(data) == 0:
-                print('Date not found in BioSentinel: {}'.format(date))
+                # print('Date not found in BioSentinel: {}'.format(date))
                 return None
         data = torch.tensor(data.values[0])
         return data
@@ -233,5 +233,5 @@ class Sequences(IterableDataset):
             if len(all_data) == len(self.datasets):
                 all_data.append(sequence_name)
                 yield tuple(all_data)
-            else:
-                print('Skipping sequence            : {}'.format(sequence_name))
+            # else:
+                # print('Skipping sequence            : {}'.format(sequence_name))
