@@ -110,7 +110,7 @@ class SDOMLlite(Dataset):
 
 
 class BioSentinel(Dataset):
-    def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00', normalize=False):
+    def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00', normalize=True):
         self.data_file = data_file
         self.date_start = datetime.datetime.fromisoformat(date_start)
         self.date_end = datetime.datetime.fromisoformat(date_end)
@@ -218,8 +218,7 @@ class Sequences(Dataset):
                 data.append(d)
             data = torch.stack(data)
             all_data.append(data)
-        sequence_name = sequence[0].isoformat() + '-' + sequence[-1].isoformat()
-        all_data.append(sequence_name)
+        all_data.append([str(date) for date in sequence])
         # print('done constructing sequence')
         return tuple(all_data)
 

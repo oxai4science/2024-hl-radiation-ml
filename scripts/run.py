@@ -59,11 +59,19 @@ def main():
     # make sure the target directory exists
     os.makedirs(args.target_dir, exist_ok=True)
 
+    # For training and validation
     date_start = '2024-01-16T11:00:00'
     date_end = '2024-02-14T19:30:00'
     sdo = SDOMLlite(args.sdo_dir)
-    biosentinel = BioSentinel(args.biosentinel_file, normalize=True, date_start=date_start, date_end=date_end)
+    biosentinel = BioSentinel(args.biosentinel_file, date_start=date_start, date_end=date_end)
     sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+
+    # Untouched data for testing
+    date_start_test = '2024-02-14T19:30:00'
+    date_end_test = '2024-02-15T00:00:00'
+    sdo_test = SDOMLlite(args.sdo_dir, date_start=date_start_test, date_end=date_end_test)
+    biosentinel_test = BioSentinel(args.biosentinel_file, date_start=date_start_test, date_end=date_end_test)
+
 
     # Split sequences into train and validation
     valid_size = int(args.valid_proportion * len(sequences))
@@ -104,7 +112,7 @@ def main():
             optimizer.step()
 
             train_losses.append((iteration, float(loss)))
-            print('Epoch: {:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, i+1, len(train_loader), float(loss)))
+            print('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
 
             # print('getting data', flush=True)
             # if iteration % args.valid_every == 0:
@@ -128,7 +136,7 @@ def main():
                 valid_seqs += 1
 
             valid_loss /= valid_seqs
-            print('Epoch: {:,} | Iter: {:,} | Valid loss: {:.4f}'.format(epoch+1, iteration, valid_loss))
+            print('\nEpoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f} | Valid loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss), valid_loss))
             valid_losses.append((iteration, valid_loss))
         
 
@@ -150,6 +158,21 @@ def main():
         plt.grid(color='#f0f0f0', zorder=0)
         plt.tight_layout()
         plt.savefig(plot_file)
+
+        # Test
+        print('Testing')
+        sequences_test = Sequences([sdo_test], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+        test_loader = DataLoader(sequences_test, batch_size=1, shuffle=False)
+
+        with torch.no_grad():
+            for sdo, _ in test_loader:
+                # print('.', end='', flush=True)
+                sdo = sdo.to(device)
+
+                input = sdo
+
+                output = model(input)
+                print('Output:', output)
 
 
 
