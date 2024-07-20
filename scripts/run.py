@@ -103,10 +103,10 @@ def main():
             print('Epoch: {:,} | Iter: {:,} | Loss: {:.4f}'.format(epoch+1, iteration, float(loss)))
 
             if iteration % args.valid_every == 0:
-                print('*** Validating ***')
                 with torch.no_grad():
                     valid_loss = 0.
                     for sdo, biosentinel, _ in valid_loader:
+                        print('*** Validating ***')
                         sdo = sdo.to(device)
                         biosentinel = biosentinel.to(device)
 
