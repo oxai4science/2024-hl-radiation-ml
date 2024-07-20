@@ -99,7 +99,6 @@ def main():
             loss.backward()
             optimizer.step()
 
-            iteration += 1
             train_losses.append((iteration, float(loss)))
             print('Epoch: {:,} | Iter: {:,} | Loss: {:.4f}'.format(epoch+1, iteration, float(loss)))
 
@@ -136,6 +135,7 @@ def main():
                 plt.legend()
                 plt.savefig('{}/loss-epoch-{}-iter-{}.pdf'.format(args.target_dir, epoch+1, iteration))
 
+            iteration += 1
 
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
