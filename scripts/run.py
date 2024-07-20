@@ -62,7 +62,7 @@ def main():
     os.makedirs(args.target_dir, exist_ok=True)
 
     # For training and validation
-    date_start = '2024-02-01T00:00:00'
+    date_start = '2023-02-01T00:00:00'
     date_end = '2024-02-14T00:00:00'
     sdo = SDOMLlite(args.sdo_dir)
     biosentinel = BioSentinel(args.biosentinel_file, date_start=date_start, date_end=date_end)
@@ -75,6 +75,14 @@ def main():
     test_biosentinel = BioSentinel(args.biosentinel_file, date_start=test_date_start, date_end=test_date_end)
     test_sequences = Sequences([test_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
     test_loader = DataLoader(test_sequences, batch_size=args.batch_size, shuffle=False)
+
+    # Testing with data seen during training
+    test_seen_date_start = '2024-02-10T00:00:00'
+    test_seen_date_end = '2024-02-14T00:00:00'
+    test_seen_sdo = SDOMLlite(args.sdo_dir, date_start=test_seen_date_start, date_end=test_seen_date_end)
+    test_seen_biosentinel = BioSentinel(args.biosentinel_file, date_start=test_seen_date_start, date_end=test_seen_date_end)
+    test_seen_sequences = Sequences([test_seen_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    test_seen_loader = DataLoader(test_seen_sequences, batch_size=args.batch_size, shuffle=False)
 
 
     # Split sequences into train and validation
@@ -100,6 +108,8 @@ def main():
     train_losses = []
     valid_losses = []
     for epoch in range(args.epochs):
+        print('*** Training')
+        model.train()
         with tqdm(total=len(train_loader)) as pbar:
             for i, (sdo, biosentinel, _) in enumerate(train_loader):
                 # print('move data to device', flush=True)
@@ -129,6 +139,7 @@ def main():
         with torch.no_grad():
             valid_loss = 0.
             valid_seqs = 0
+            model.eval()
             with tqdm(total=len(valid_loader), desc='Validation') as pbar:
                 for sdo, biosentinel, _ in valid_loader:
                     sdo = sdo.to(device)
@@ -167,13 +178,13 @@ def main():
         plt.tight_layout()
         plt.savefig(plot_file)
 
-        # Test
-        print('*** Testing')
+        # Test with unseen data
+        print('*** Testing with unseen data')
 
         test_predictions = []
         test_ground_truths = []
         with torch.no_grad():
-            with tqdm(total=len(test_loader), desc='Testing') as pbar:
+            with tqdm(total=len(test_loader), desc='Testing (unseen)') as pbar:
                 for sdo, dates in test_loader:
                     sdo = sdo.to(device)
                     input = sdo
@@ -198,14 +209,13 @@ def main():
             for i in range(len(test_predictions)):
                 f.write('{},{},{}\n'.format(test_predictions[i][0], test_predictions[i][1], test_ground_truths[i][1]))
 
-        # Plot test results
         test_plot_file = '{}/epoch_{:03d}_test.pdf'.format(args.target_dir, epoch+1)
         print('Saving test plot to {}'.format(test_plot_file))
         plt.figure(figsize=(12, 6))
         plt.plot(*zip(*test_predictions), label='Prediction')
         plt.plot(*zip(*test_ground_truths), label='Ground truth')
-        plt.xlabel('Date')
-        plt.ylabel('BPD')
+        # plt.xlabel('Date')
+        plt.ylabel('Absorbed dose rate')
         # Limit number of xticks
         plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//10))
         # Rotate xticks
@@ -218,10 +228,62 @@ def main():
         plt.savefig(test_plot_file)
 
 
+        # Test with seen data
+        print('*** Testing with seen data')
+
+        test_seen_predictions = []
+        test_seen_ground_truths = []
+        with torch.no_grad():
+            with tqdm(total=len(test_seen_loader), desc='Testing (seen)') as pbar:
+                for sdo, dates in test_seen_loader:
+                    sdo = sdo.to(device)
+                    input = sdo
+                    output = model(input)
+                    
+                    for i in range(len(output)):
+                        prediction_date = dates[i][-1]
+                        prediction_value = float(test_seen_biosentinel.unnormalize_data(output[i]))
+                        ground_truth_value, _ = test_seen_biosentinel[prediction_date]
+                        test_seen_predictions.append((prediction_date, prediction_value))
+                        if ground_truth_value is None:
+                            ground_truth_value = float('nan')
+                        else:
+                            ground_truth_value = float(test_seen_biosentinel.unnormalize_data(ground_truth_value))
+                        test_seen_ground_truths.append((prediction_date, ground_truth_value))
+                    pbar.update(1)
+
+        test_seen_file = '{}/epoch_{:03d}_test.csv'.format(args.target_dir, epoch+1)
+        print('\nSaving test results to {}'.format(test_seen_file))
+        with open(test_seen_file, 'w') as f:
+            f.write('date,prediction,ground_truth\n')
+            for i in range(len(test_seen_predictions)):
+                f.write('{},{},{}\n'.format(test_seen_predictions[i][0], test_seen_predictions[i][1], test_seen_ground_truths[i][1]))
+
+        test_seen_plot_file = '{}/epoch_{:03d}_test_seen.pdf'.format(args.target_dir, epoch+1)
+        print('Saving test plot to {}'.format(test_seen_plot_file))
+        plt.figure(figsize=(12, 6))
+        plt.plot(*zip(*test_seen_predictions), label='Prediction')
+        plt.plot(*zip(*test_seen_ground_truths), label='Ground truth')
+        # plt.xlabel('Date')
+        plt.ylabel('Absorbed dose rate')
+        # Limit number of xticks
+        plt.xticks(np.arange(0, len(test_seen_predictions), step=len(test_seen_predictions)//10))
+        # Rotate xticks
+        plt.xticks(rotation=45)
+        # Shift xticks so that the end of the text is at the tick
+        plt.xticks(ha='right')
+        plt.legend()
+        plt.grid(color='#f0f0f0', zorder=0)
+        plt.tight_layout()
+        plt.savefig(test_seen_plot_file)
+        plt.close('all')
+
         shutil.copyfile(model_file, '{}/latest_model.pth'.format(args.target_dir))
         shutil.copyfile(plot_file, '{}/latest_loss.pdf'.format(args.target_dir))
         shutil.copyfile(test_file, '{}/latest_test.csv'.format(args.target_dir))
         shutil.copyfile(test_plot_file, '{}/latest_test.pdf'.format(args.target_dir))
+        shutil.copyfile(test_seen_file, '{}/latest_test_seen.csv'.format(args.target_dir))
+        shutil.copyfile(test_seen_plot_file, '{}/latest_test_seen.pdf'.format(args.target_dir))
         
 
     

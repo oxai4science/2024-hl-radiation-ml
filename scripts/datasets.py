@@ -41,7 +41,7 @@ class SDOMLlite(Dataset):
 
 
         self.dates = []
-        dates_cache = os.path.join(self.data_dir, 'dates_cache_{}_{}_'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
+        dates_cache = os.path.join(self.data_dir, 'dates_cache_{}_{}_{}'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
         if os.path.exists(dates_cache):
             print('Loading dates from cache: {}'.format(dates_cache))
             self.dates = torch.load(dates_cache)
@@ -128,20 +128,27 @@ class BioSentinel(Dataset):
 
     def process_data(self, data_file):
         data = pd.read_csv(data_file)
-        print('Rows before filtering: {:,}'.format(len(data)))
+        print('Rows before filtering       : {:,}'.format(len(data)))
         data['datetime'] = pd.to_datetime(data['timestamp_utc']).dt.tz_localize(None)
 
         # filter out rows before start date and after end date
         data = data[(data['datetime'] >=self.date_start) & (data['datetime'] <=self.date_end)]
+        print('Rows after date filter      : {:,}'.format(len(data)))
+
         # erase all columns except absorbed_dose_rate and datetime
         data = data[['datetime', 'absorbed_dose_rate']]
         
         # remove all rows with 0 absorbed_dose_rate
         data = data[data['absorbed_dose_rate'] > 0]
+        print('Rows after removing 0s      : {:,}'.format(len(data)))
+
+        # q_low = data['absorbed_dose_rate'].quantile(0.01)
+        # q_hi  = data['absorbed_dose_rate'].quantile(0.99)
+        # data = data[(data['absorbed_dose_rate'] < q_hi) & (data['absorbed_dose_rate'] > q_low)]
+        # print('Rows after removing outliers: {:,}'.format(len(data)))
 
         data['absorbed_dose_rate'] = data['absorbed_dose_rate'].astype(np.float32)
 
-        print('Rows after  filtering: {:,}'.format(len(data)))
         return data
 
     def __len__(self):
