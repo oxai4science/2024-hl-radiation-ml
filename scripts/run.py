@@ -11,6 +11,7 @@ from torch.utils.data import DataLoader, random_split
 import torch.optim as optim
 import matplotlib
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from datasets import SDOMLlite, BioSentinel, Sequences
 from models import SDOSequence
@@ -60,15 +61,15 @@ def main():
     os.makedirs(args.target_dir, exist_ok=True)
 
     # For training and validation
-    date_start = '2024-01-16T11:00:00'
-    date_end = '2024-02-14T19:30:00'
+    date_start = '2024-02-01T00:00:00'
+    date_end = '2024-02-14T00:00:00'
     sdo = SDOMLlite(args.sdo_dir)
     biosentinel = BioSentinel(args.biosentinel_file, date_start=date_start, date_end=date_end)
     sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
     # Untouched data for testing
-    date_start_test = '2024-02-14T19:30:00'
-    date_end_test = '2024-02-15T00:00:00'
+    date_start_test = '2024-02-14T00:00:00'
+    date_end_test = '2024-02-18T00:00:00'
     sdo_test = SDOMLlite(args.sdo_dir, date_start=date_start_test, date_end=date_end_test)
     biosentinel_test = BioSentinel(args.biosentinel_file, date_start=date_start_test, date_end=date_end_test)
 
@@ -88,7 +89,7 @@ def main():
     model = model.to(device)
 
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print('\nNumber of parameters: {:,}'.format(num_params))
+    print('\nNumber of parameters: {:,}\n'.format(num_params))
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -96,29 +97,32 @@ def main():
     train_losses = []
     valid_losses = []
     for epoch in range(args.epochs):
-        for i, (sdo, biosentinel, _) in enumerate(train_loader):
-            # print('move data to device', flush=True)
-            sdo = sdo.to(device)
-            biosentinel = biosentinel.to(device)
+        with tqdm(total=len(train_loader)) as pbar:
+            for i, (sdo, biosentinel, _) in enumerate(train_loader):
+                # print('move data to device', flush=True)
+                sdo = sdo.to(device)
+                biosentinel = biosentinel.to(device)
 
-            input = sdo
-            target = biosentinel[:, -1].unsqueeze(1)
+                input = sdo
+                target = biosentinel[:, -1].unsqueeze(1)
 
-            # print('run model', flush=True)
-            optimizer.zero_grad()
-            output = model(input)
-            loss = torch.nn.functional.mse_loss(output, target)
-            loss.backward()
-            optimizer.step()
+                # print('run model', flush=True)
+                optimizer.zero_grad()
+                output = model(input)
+                loss = torch.nn.functional.mse_loss(output, target)
+                loss.backward()
+                optimizer.step()
 
-            train_losses.append((iteration, float(loss)))
-            print('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
+                train_losses.append((iteration, float(loss)))
+                # print('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
+                pbar.set_description('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
+                pbar.update(1)
 
-            # print('getting data', flush=True)
-            # if iteration % args.valid_every == 0:
-            iteration += 1
+                # print('getting data', flush=True)
+                # if iteration % args.valid_every == 0:
+                iteration += 1
 
-        print('Validation', end=' ')
+        print('*** Validation', end=' ')
         with torch.no_grad():
             valid_loss = 0.
             valid_seqs = 0
@@ -141,12 +145,12 @@ def main():
         
 
         # Save model
-        model_file = '{}/model_epoch_{}.pth'.format(args.target_dir, epoch+1)
+        model_file = '{}/epoch_{:03d}_model.pth'.format(args.target_dir, epoch+1)
         print('Saving model to {}'.format(model_file))
         torch.save(model.state_dict(), model_file)
 
         # Plot losses
-        plot_file = '{}/loss_epoch_{}.pdf'.format(args.target_dir, epoch+1)
+        plot_file = '{}/epoch_{:03d}_loss.pdf'.format(args.target_dir, epoch+1)
         print('Saving plot to {}'.format(plot_file))
         plt.figure()
         plt.plot(*zip(*train_losses), label='Training')
@@ -160,21 +164,57 @@ def main():
         plt.savefig(plot_file)
 
         # Test
-        print('Testing')
+        print('*** Testing')
         sequences_test = Sequences([sdo_test], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-        test_loader = DataLoader(sequences_test, batch_size=1, shuffle=False)
+        test_loader = DataLoader(sequences_test, batch_size=args.batch_size, shuffle=False)
 
+        test_predictions = []
+        test_ground_truths = []
         with torch.no_grad():
-            for sdo, _ in test_loader:
-                # print('.', end='', flush=True)
+            for sdo, dates in test_loader:
+                print('.', end='', flush=True)
                 sdo = sdo.to(device)
-
                 input = sdo
-
                 output = model(input)
-                print('Output:', output)
+                
+                for i in range(len(output)):
+                    prediction_date = dates[i][-1]
+                    prediction_value = float(biosentinel_test.unnormalize_data(output[i]))
+                    ground_truth_value, _ = biosentinel_test[prediction_date]
+                    test_predictions.append((prediction_date, prediction_value))
+                    if ground_truth_value is None:
+                        ground_truth_value = float('nan')
+                    else:
+                        ground_truth_value = float(biosentinel_test.unnormalize_data(ground_truth_value))
+                    test_ground_truths.append((prediction_date, ground_truth_value))
 
+        test_file = '{}/epoch_{:03d}_test.csv'.format(args.target_dir, epoch+1)
+        print('\nSaving test results to {}'.format(test_file))
+        with open(test_file, 'w') as f:
+            f.write('date,prediction,ground_truth\n')
+            for i in range(len(test_predictions)):
+                f.write('{},{},{}\n'.format(test_predictions[i][0], test_predictions[i][1], test_ground_truths[i][1]))
 
+        # Plot test results
+        test_plot_file = '{}/epoch_{:03d}_test.pdf'.format(args.target_dir, epoch+1)
+        print('Saving test plot to {}'.format(test_plot_file))
+        plt.figure(figsize=(12, 6))
+        plt.plot(*zip(*test_predictions), label='Prediction')
+        plt.plot(*zip(*test_ground_truths), label='Ground truth')
+        plt.xlabel('Date')
+        plt.ylabel('BPD')
+        # Limit number of xticks
+        plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//10))
+        # Rotate xticks
+        plt.xticks(rotation=45)
+        # Shift xticks so that the end of the text is at the tick
+        plt.xticks(ha='right')
+        plt.legend()
+        plt.grid(color='#f0f0f0', zorder=0)
+        plt.tight_layout()
+        plt.savefig(test_plot_file)
+
+    
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
     print('Duration: {}'.format(datetime.datetime.now() - start_time))
