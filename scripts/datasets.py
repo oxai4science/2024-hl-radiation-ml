@@ -112,11 +112,12 @@ class SDOMLlite(Dataset):
 
 
 class BioSentinel(Dataset):
-    def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00'):
+    def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00', normalize=False):
         self.data_file = data_file
         self.date_start = datetime.datetime.fromisoformat(date_start)
         self.date_end = datetime.datetime.fromisoformat(date_end)
         self.delta_minutes = 1
+        self.normalize = normalize
 
         print('\nBioSentinel')
         print('Data file : {}'.format(self.data_file))
@@ -158,8 +159,14 @@ class BioSentinel(Dataset):
             date = datetime.datetime.fromisoformat(index)
         else:
             raise ValueError('Expecting index to be int, datetime.datetime, or str (in the format of 2022-11-01T00:01:00)')
-        data = self.get_data(date)    
+        data = self.get_data(date)
         return data, date.isoformat()
+
+    def normalize_data(self, data):
+        return torch.log(data + 1e-8)
+    
+    def unnormalize_data(self, data):
+        return torch.exp(data) - 1e-8
 
     def get_data(self, date):
         if date < self.date_start or date > self.date_end:
@@ -178,15 +185,19 @@ class BioSentinel(Dataset):
                 # print('Date not found in BioSentinel: {}'.format(date))
                 return None
         data = torch.tensor(data.values[0])
+        if self.normalize:
+            data = self.normalize_data(data)
+
         return data
 
 
 class Sequences(IterableDataset):
-    def __init__(self, datasets, delta_minutes=1, sequence_length=10):
+    def __init__(self, datasets, delta_minutes=1, sequence_length=10, shuffle=False):
         super().__init__()
         self.datasets = datasets
         self.delta_minutes = delta_minutes
         self.sequence_length = sequence_length
+        self.shuffle = shuffle
 
         self.date_start = max([dataset.date_start for dataset in self.datasets])
         self.date_end = min([dataset.date_end for dataset in self.datasets])
@@ -214,7 +225,12 @@ class Sequences(IterableDataset):
             iter_end = iter_start + per_worker
             if worker_id == worker_info.num_workers - 1:
                 iter_end = self.length
-        for i in range(iter_start, iter_end):
+
+        indices = list(range(iter_start, iter_end))
+        if self.shuffle:
+            np.random.shuffle(indices)
+
+        for i in indices:
             sequence_start = self.date_start + datetime.timedelta(minutes=i*self.delta_minutes)
             all_data = []
             for dataset in self.datasets:
@@ -230,6 +246,7 @@ class Sequences(IterableDataset):
                 data = torch.stack(data)
                 all_data.append(data)
             sequence_name = '{} - {}'.format(sequence_start, sequence_start + datetime.timedelta(minutes=self.sequence_length*self.delta_minutes))
+            # print(sequence_name)
             if len(all_data) == len(self.datasets):
                 all_data.append(sequence_name)
                 yield tuple(all_data)

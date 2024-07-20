@@ -38,8 +38,8 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--seed', type=int, default=0, help='Random number generator seed')
     parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
-    parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-6, help='Weight decay')
+    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
     parser.add_argument('--valid_every', type=int, default=250, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
 
@@ -59,13 +59,13 @@ def main():
     # make sure the target directory exists
     os.makedirs(args.target_dir, exist_ok=True)
 
-    sdo_train = SDOMLlite(args.sdo_dir, date_end='2024-04-01')
-    sdo_valid = SDOMLlite(args.sdo_dir, date_start='2024-04-01')
+    sdo_train = SDOMLlite(args.sdo_dir, date_end='2024-05-01')
+    sdo_valid = SDOMLlite(args.sdo_dir, date_start='2024-05-01')
 
-    biosentinel_train = BioSentinel(args.biosentinel_file, date_end='2024-04-01')
-    biosentinel_valid = BioSentinel(args.biosentinel_file, date_start='2024-04-01')
+    biosentinel_train = BioSentinel(args.biosentinel_file, date_end='2024-05-01', normalize=True)
+    biosentinel_valid = BioSentinel(args.biosentinel_file, date_start='2024-05-01', normalize=True)
 
-    sequences_train = Sequences([sdo_train, biosentinel_train], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    sequences_train = Sequences([sdo_train, biosentinel_train], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length, shuffle=True)
     sequences_valid = Sequences([sdo_valid, biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
     print('\nTrain size: {:,}'.format(sequences_train.length))
@@ -103,10 +103,11 @@ def main():
             print('Epoch: {:,} | Iter: {:,} | Loss: {:.4f}'.format(epoch+1, iteration, float(loss)))
 
             if iteration % args.valid_every == 0:
+                print('Validation', end=' ')
                 with torch.no_grad():
                     valid_loss = 0.
+                    valid_seqs = 0
                     for sdo, biosentinel, _ in valid_loader:
-                        print('*** Validating ***')
                         sdo = sdo.to(device)
                         biosentinel = biosentinel.to(device)
 
@@ -116,25 +117,30 @@ def main():
                         output = model(input)
                         loss = torch.nn.functional.mse_loss(output, target)
                         valid_loss += float(loss)
+                        valid_seqs += 1
 
-                    valid_loss /= len(valid_loader)
+                    valid_loss /= valid_seqs
                     print('Epoch: {:,} | Iter: {:,} | Valid loss: {:.4f}'.format(epoch+1, iteration, valid_loss))
                     valid_losses.append((iteration, valid_loss))
                 
 
                 # Save model
-                model_file = '{}/model-epoch-{}-iter-{}.pth'.format(args.target_dir, epoch+1, iteration)
+                model_file = '{}/model_iter_{}.pth'.format(args.target_dir, iteration)
                 print('Saving model to {}'.format(model_file))
                 torch.save(model.state_dict(), model_file)
 
                 # Plot losses
+                plot_file = '{}/loss_iter_{}.pdf'.format(args.target_dir, iteration)
+                print('Saving plot to {}'.format(plot_file))
                 plt.figure()
-                plt.plot(*zip(*train_losses), label='Train')
-                # plt.plot(*zip(*valid_losses), label='Valid')
+                plt.plot(*zip(*train_losses), label='Training')
+                plt.plot(*zip(*valid_losses), label='Validation')
                 plt.xlabel('Iteration')
                 plt.ylabel('Loss')
+                plt.yscale('log')
                 plt.legend()
-                plt.savefig('{}/loss-epoch-{}-iter-{}.pdf'.format(args.target_dir, epoch+1, iteration))
+                plt.tight_layout()
+                plt.savefig(plot_file)
 
             iteration += 1
 
