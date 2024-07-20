@@ -12,6 +12,7 @@ import torch.optim as optim
 import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+import shutil
 
 from datasets import SDOMLlite, BioSentinel, Sequences
 from models import SDOSequence
@@ -38,7 +39,7 @@ def main():
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--seed', type=int, default=0, help='Random number generator seed')
-    parser.add_argument('--epochs', type=int, default=10, help='Number of epochs')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
     parser.add_argument('--valid_proportion', type=float, default=0.1, help='Validation frequency in iterations')
@@ -68,10 +69,12 @@ def main():
     sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
     # Untouched data for testing
-    date_start_test = '2024-02-14T00:00:00'
-    date_end_test = '2024-02-18T00:00:00'
-    sdo_test = SDOMLlite(args.sdo_dir, date_start=date_start_test, date_end=date_end_test)
-    biosentinel_test = BioSentinel(args.biosentinel_file, date_start=date_start_test, date_end=date_end_test)
+    test_date_start = '2024-02-14T00:00:00'
+    test_date_end = '2024-02-18T00:00:00'
+    test_sdo = SDOMLlite(args.sdo_dir, date_start=test_date_start, date_end=test_date_end)
+    test_biosentinel = BioSentinel(args.biosentinel_file, date_start=test_date_start, date_end=test_date_end)
+    test_sequences = Sequences([test_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    test_loader = DataLoader(test_sequences, batch_size=args.batch_size, shuffle=False)
 
 
     # Split sequences into train and validation
@@ -122,22 +125,23 @@ def main():
                 # if iteration % args.valid_every == 0:
                 iteration += 1
 
-        print('*** Validation', end=' ')
+        print('*** Validation')
         with torch.no_grad():
             valid_loss = 0.
             valid_seqs = 0
-            for sdo, biosentinel, _ in valid_loader:
-                print('.', end='', flush=True)
-                sdo = sdo.to(device)
-                biosentinel = biosentinel.to(device)
+            with tqdm(total=len(valid_loader), desc='Validation') as pbar:
+                for sdo, biosentinel, _ in valid_loader:
+                    sdo = sdo.to(device)
+                    biosentinel = biosentinel.to(device)
 
-                input = sdo
-                target = biosentinel[:, -1].unsqueeze(1)
+                    input = sdo
+                    target = biosentinel[:, -1].unsqueeze(1)
 
-                output = model(input)
-                loss = torch.nn.functional.mse_loss(output, target)
-                valid_loss += float(loss)
-                valid_seqs += 1
+                    output = model(input)
+                    loss = torch.nn.functional.mse_loss(output, target)
+                    valid_loss += float(loss)
+                    valid_seqs += 1
+                    pbar.update(1)
 
             valid_loss /= valid_seqs
             print('\nEpoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f} | Valid loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss), valid_loss))
@@ -165,28 +169,27 @@ def main():
 
         # Test
         print('*** Testing')
-        sequences_test = Sequences([sdo_test], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-        test_loader = DataLoader(sequences_test, batch_size=args.batch_size, shuffle=False)
 
         test_predictions = []
         test_ground_truths = []
         with torch.no_grad():
-            for sdo, dates in test_loader:
-                print('.', end='', flush=True)
-                sdo = sdo.to(device)
-                input = sdo
-                output = model(input)
-                
-                for i in range(len(output)):
-                    prediction_date = dates[i][-1]
-                    prediction_value = float(biosentinel_test.unnormalize_data(output[i]))
-                    ground_truth_value, _ = biosentinel_test[prediction_date]
-                    test_predictions.append((prediction_date, prediction_value))
-                    if ground_truth_value is None:
-                        ground_truth_value = float('nan')
-                    else:
-                        ground_truth_value = float(biosentinel_test.unnormalize_data(ground_truth_value))
-                    test_ground_truths.append((prediction_date, ground_truth_value))
+            with tqdm(total=len(test_loader), desc='Testing') as pbar:
+                for sdo, dates in test_loader:
+                    sdo = sdo.to(device)
+                    input = sdo
+                    output = model(input)
+                    
+                    for i in range(len(output)):
+                        prediction_date = dates[i][-1]
+                        prediction_value = float(test_biosentinel.unnormalize_data(output[i]))
+                        ground_truth_value, _ = test_biosentinel[prediction_date]
+                        test_predictions.append((prediction_date, prediction_value))
+                        if ground_truth_value is None:
+                            ground_truth_value = float('nan')
+                        else:
+                            ground_truth_value = float(test_biosentinel.unnormalize_data(ground_truth_value))
+                        test_ground_truths.append((prediction_date, ground_truth_value))
+                    pbar.update(1)
 
         test_file = '{}/epoch_{:03d}_test.csv'.format(args.target_dir, epoch+1)
         print('\nSaving test results to {}'.format(test_file))
@@ -213,6 +216,13 @@ def main():
         plt.grid(color='#f0f0f0', zorder=0)
         plt.tight_layout()
         plt.savefig(test_plot_file)
+
+
+        shutil.copyfile(model_file, '{}/latest_model.pth'.format(args.target_dir))
+        shutil.copyfile(plot_file, '{}/latest_loss.pdf'.format(args.target_dir))
+        shutil.copyfile(test_file, '{}/latest_test.csv'.format(args.target_dir))
+        shutil.copyfile(test_plot_file, '{}/latest_test.pdf'.format(args.target_dir))
+        
 
     
 
