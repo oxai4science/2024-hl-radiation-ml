@@ -37,7 +37,7 @@ class SDOMLlite(Dataset):
         print('Channels   : {}'.format(', '.join(self.channels)))
 
         self.dates = []
-        dates_cache = os.path.join(self.data_dir, 'dates_cache_{}'.format('_'.join(self.channels)))
+        dates_cache = os.path.join(self.data_dir, 'dates_cache_{}_{}_'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
         if os.path.exists(dates_cache):
             print('Loading dates from cache: {}'.format(dates_cache))
             self.dates = torch.load(dates_cache)
