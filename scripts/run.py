@@ -6,6 +6,7 @@ import datetime
 import torch
 import random
 import numpy as np
+import os
 from torch.utils.data import DataLoader, random_split
 import torch.optim as optim
 import matplotlib
@@ -54,6 +55,9 @@ def main():
 
     seed(args.seed)
     device = torch.device(args.device)
+
+    # make sure the target directory exists
+    os.makedirs(args.target_dir, exist_ok=True)
 
     sdo_train = SDOMLlite(args.sdo_dir, date_end='2024-04-01')
     sdo_valid = SDOMLlite(args.sdo_dir, date_start='2024-04-01')
