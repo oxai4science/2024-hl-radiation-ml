@@ -116,9 +116,9 @@ def main():
     parser.add_argument('--valid_proportion', type=float, default=0.1, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
-    parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2024-04-14T00:00:00', help='End date')
-    parser.add_argument('--test_date_start', type=str, default='2024-04-14T00:00:00', help='Start date')
+    parser.add_argument('--date_start', type=str, default='2024-04-01T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2024-05-01T00:00:00', help='End date')
+    parser.add_argument('--test_date_start', type=str, default='2024-05-01T00:00:00', help='Start date')
     parser.add_argument('--test_date_end', type=str, default='2024-05-14T19:30:00', help='End date')
     parser.add_argument('--model_file', type=str, help='Model file')
 
@@ -147,7 +147,8 @@ def main():
         sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
         # Testing with data seen during training
-        test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=30)).isoformat()
+        # Use the last 14 days in the training data
+        test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=14)).isoformat()
         test_seen_date_end = args.date_end
 
         # Split sequences into train and validation
