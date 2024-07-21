@@ -68,13 +68,13 @@ def save_test_file(test_predictions, test_ground_truths, test_file):
 
 def save_test_plot(test_predictions, test_ground_truths, test_plot_file):
     print('Saving test plot to {}'.format(test_plot_file))
-    plt.figure(figsize=(12, 6))
-    plt.plot(*zip(*test_predictions), label='Prediction')
-    plt.plot(*zip(*test_ground_truths), label='Ground truth')
+    plt.figure(figsize=(24, 6))
+    plt.plot(*zip(*test_predictions), label='Prediction', alpha=0.75)
+    plt.plot(*zip(*test_ground_truths), label='Ground truth', alpha=0.75)
     # plt.xlabel('Date')
     plt.ylabel('Absorbed dose rate')
     # Limit number of xticks
-    plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//10))
+    plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//40))
     # Rotate xticks
     plt.xticks(rotation=45)
     # Shift xticks so that the end of the text is at the tick
@@ -87,7 +87,7 @@ def save_test_plot(test_predictions, test_ground_truths, test_plot_file):
 
 def save_loss_plot(train_losses, valid_losses, plot_file):
     print('Saving plot to {}'.format(plot_file))
-    plt.figure()
+    plt.figure(figsize=(12, 6))
     plt.plot(*zip(*train_losses), label='Training')
     plt.plot(*zip(*valid_losses), label='Validation')
     plt.xlabel('Iteration')
