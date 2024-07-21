@@ -147,7 +147,7 @@ def main():
         sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
         # Testing with data seen during training
-        test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=15)).isoformat()
+        test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=30)).isoformat()
         test_seen_date_end = args.date_end
 
         # Split sequences into train and validation
