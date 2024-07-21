@@ -116,8 +116,10 @@ def main():
     parser.add_argument('--valid_proportion', type=float, default=0.1, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
-    parser.add_argument('--date_start', type=str, default='2023-02-01T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2024-02-14T00:00:00', help='End date')
+    parser.add_argument('--date_start', type=str, default='2024-04-01T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2024-04-14T00:00:00', help='End date')
+    parser.add_argument('--test_date_start', type=str, default='2024-04-14T00:00:00', help='Start date')
+    parser.add_argument('--test_date_end', type=str, default='2024-05-14T19:30:00', help='End date')
     parser.add_argument('--model_file', type=str, help='Model file')
 
     args = parser.parse_args()
@@ -144,13 +146,9 @@ def main():
         biosentinel = BioSentinel(args.biosentinel_file, date_start=args.date_start, date_end=args.date_end)
         sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
-        # Untouched data for testing
-        test_date_start = '2024-02-14T00:00:00'
-        test_date_end = '2024-02-18T00:00:00'
-
         # Testing with data seen during training
-        test_seen_date_start = '2024-02-10T00:00:00'
-        test_seen_date_end = '2024-02-14T00:00:00'
+        test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=15)).isoformat()
+        test_seen_date_end = args.date_end
 
         # Split sequences into train and validation
         valid_size = int(args.valid_proportion * len(sequences))

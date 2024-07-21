@@ -85,7 +85,7 @@ def main():
         plt.plot(dates, values)
         plt.ylabel('Absorbed dose rate')
         # Limit number of xticks
-        plt.xticks(np.arange(0, len(dates), step=len(dates)//20))
+        plt.xticks(np.arange(0, len(dates), step=len(dates)//40))
         # Rotate xticks
         plt.xticks(rotation=45)
         # Shift xticks so that the end of the text is at the tick
