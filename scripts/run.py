@@ -235,7 +235,7 @@ def main():
 
             # Test with unseen data
             print('*** Testing with unseen data')
-            test_predictions, test_ground_truths = test(model, test_date_start, test_date_end, args)
+            test_predictions, test_ground_truths = test(model, args.test_date_start, args.test_date_end, args)
             test_file = '{}/epoch_{:03d}_test.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_predictions, test_ground_truths, test_file)
             test_plot_file = '{}/epoch_{:03d}_test.pdf'.format(args.target_dir, epoch+1)
