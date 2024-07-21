@@ -37,7 +37,7 @@ def main():
 
     # load the dataset
     runs = [ 
-        ('unnormalized', BioSentinel(args.biosentinel_file)),  
+        ('unnormalized', BioSentinel(args.biosentinel_file, normalize=False)),  
         ('normalized', BioSentinel(args.biosentinel_file, normalize=True))
     ]
 
@@ -70,6 +70,31 @@ def main():
         plt.hist(data.flatten(), log=True, bins=100)
         plt.tight_layout()
         plt.savefig(file_name_hist)
+
+        # plot the whole dataset time series
+        dates = []
+        values = []
+        for i in range(0, len(dataset), len(dataset)//args.num_samples):
+            d = dataset[i]
+            dates.append(d[1])
+            values.append(d[0])
+
+        file_name_ts = os.path.join(args.target_dir, '{}_time_series_{}.pdf'.format(prefix, postfix))
+        print('Saving time series: {}'.format(file_name_ts))
+        plt.figure(figsize=(24,6))
+        plt.plot(dates, values)
+        plt.ylabel('Absorbed dose rate')
+        # Limit number of xticks
+        plt.xticks(np.arange(0, len(dates), step=len(dates)//20))
+        # Rotate xticks
+        plt.xticks(rotation=45)
+        # Shift xticks so that the end of the text is at the tick
+        plt.xticks(ha='right')
+        plt.tight_layout()
+        plt.savefig(file_name_ts)
+
+
+
 
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
