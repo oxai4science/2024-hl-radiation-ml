@@ -6,6 +6,8 @@ import os
 import datetime
 from tqdm import tqdm
 import pandas as pd
+from io import BytesIO
+import tarfile
 
 
 class SDOMLlite(Dataset):
@@ -249,3 +251,72 @@ class Sequences(Dataset):
                 sequences.append(sequence)
             sequence_start += datetime.timedelta(minutes=self.delta_minutes)
         return sequences
+
+
+class TarRandomAccess():
+    def __init__(self, tar_files):
+        self.index = {}
+        for tar_file in tar_files:
+            with tarfile.open(tar_file) as tar:
+                for info in tar.getmembers():
+                    self.index[info.name] = (tar.name, info)
+        self.file_names = list(self.index.keys())
+
+    def __getitem__(self, file_name):
+        d = self.index.get(file_name)
+        if d is None:
+            return None
+        tar_name, info = d
+        with tarfile.open(tar_name) as tar:
+            data = BytesIO(tar.extractfile(info).read())
+        return data
+
+    
+class WebDataset():
+    def __init__(self, data_dir, decode_func=None):
+        tar_files = glob(os.path.join(data_dir, '*.tar'))
+        self.tars = TarRandomAccess(tar_files)
+        if decode_func is None:
+            self.decode_func = self.decode
+        else:
+            self.decode_func = decode_func
+        
+        self.samples = {}
+        self.prefixes = []
+        for file_name in self.tars.file_names:
+            p = file_name.split('.', 1)
+            if len(p) == 2:
+                prefix, postfix = p
+                if prefix not in self.samples:
+                    self.samples[prefix] = []
+                    self.prefixes.append(prefix)
+                self.samples[prefix].append(postfix)
+
+    def decode(self, data, file_name):
+        if file_name.endswith('.npy'):
+            data = np.load(data)
+        else:
+            raise ValueError('Unknown data type for file: {}'.format(file_name))    
+        return data
+        
+    def __len__(self):
+        return len(self.samples)
+    
+    def __getitem__(self, index):
+        if isinstance(index, int):
+            prefix = self.prefixes[index]
+        elif isinstance(index, str):
+            prefix = index
+        else:
+            raise ValueError('Expecting index to be int or str')
+        sample = self.samples.get(prefix)
+        if sample is None:
+            return None
+        
+        data = {}
+        for postfix in sample:
+            file_name = prefix + '.' + postfix
+            d = self.decode(self.tars[file_name], file_name)
+            data[postfix] = d
+        return data                
+            
