@@ -103,8 +103,8 @@ def main():
     description = 'FDL-X 2024, Radiation Team, preliminary machine learning experiments'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--target_dir', type=str, required=True, help='Directory to store results')
-    parser.add_argument('--sdo_dir', type=str, default='/hdd2-ssd-8T/data/sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
-    parser.add_argument('--biosentinel_file', type=str, default='/hdd2-ssd-8T/data/biosentinel/BPD_readings.csv', help='BioSentinel file')
+    parser.add_argument('--sdo_dir', type=str, default='/disk2-ssd-8tb/data/sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
+    parser.add_argument('--biosentinel_file', type=str, default='/disk2-ssd-8tb/data/biosentinel/BPD_readings.csv', help='BioSentinel file')
     parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
