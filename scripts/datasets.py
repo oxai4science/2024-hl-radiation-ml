@@ -8,6 +8,8 @@ from tqdm import tqdm
 import pandas as pd
 from io import BytesIO
 import tarfile
+import pickle
+from functools import lru_cache
 
 
 class SDOMLlite(Dataset):
@@ -16,6 +18,8 @@ class SDOMLlite(Dataset):
         self.channels = channels
         print('\nSDOML-lite')
         print('Directory  : {}'.format(self.data_dir))
+
+        self.data = WebDataset(data_dir)
 
         self.date_start, self.date_end = self.find_date_range()
         if date_start is not None:
@@ -38,29 +42,32 @@ class SDOMLlite(Dataset):
         print('Delta      : {} minutes'.format(self.delta_minutes))
         print('Channels   : {}'.format(', '.join(self.channels)))
 
-        # convert 2022-11-06 00:01:00+00:00 to datetime.datetime(2022, 11, 6, 0, 1)
-        datetime.datetime.fromisoformat('2022-11-06T00:01:00+00:00')
-
-
         self.dates = []
-        dates_cache = os.path.join(self.data_dir, 'dates_cache_{}_{}_{}'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
+        dates_cache = os.path.join(self.data_dir, 'dates_index_{}_{}_{}'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
         if os.path.exists(dates_cache):
             print('Loading dates from cache: {}'.format(dates_cache))
-            self.dates = torch.load(dates_cache)
+            with open(dates_cache, 'rb') as f:
+                self.dates = pickle.load(f)
         else:        
             for i in tqdm(range(total_steps), desc='Checking complete channels'):
                 date = self.date_start + datetime.timedelta(minutes=self.delta_minutes*i)
                 exists = True
-                for channel in self.channels:
-                    file = os.path.join(self.data_dir, date.strftime('%Y/%m/%d/%H%M') +'.'+channel+'.npy')
-                    if not os.path.exists(file):
-                        exists = False
-                        break
+                prefix = self.date_to_prefix(date)
+                data = self.data.index.get(prefix)
+                if data is None:
+                    exists = False
+                else:
+                    for channel in self.channels:
+                        postfix = channel+'.npy'
+                        if postfix not in data:
+                            exists = False
+                            break
                 if exists:
                     self.dates.append(date)
             print('Saving dates to cache: {}'.format(dates_cache))
-            torch.save(self.dates, dates_cache)
-
+            with open(dates_cache, 'wb') as f:
+                pickle.dump(self.dates, f)
+            
         if len(self.dates) == 0:
             raise RuntimeError('No frames found with given list of channels')
 
@@ -70,12 +77,19 @@ class SDOMLlite(Dataset):
         print('Frames available: {:,}'.format(len(self.dates)))
         print('Frames dropped  : {:,}'.format(total_steps - len(self.dates)))
 
+    @lru_cache(maxsize=100000)
+    def prefix_to_date(self, prefix):
+        return datetime.datetime.strptime(prefix, '%Y/%m/%d/%H%M')
+    
+    @lru_cache(maxsize=100000)
+    def date_to_prefix(self, date):
+        return date.strftime('%Y/%m/%d/%H%M')
+
     def find_date_range(self):
-        all_files = sorted(glob(os.path.join(self.data_dir,'**','*.npy'), recursive=True))
-        if len(all_files) == 0:
-            raise RuntimeError('No .npy files found in the directory')
-        date_start = datetime.datetime.strptime(os.path.relpath(all_files[0], self.data_dir).split('.')[0], '%Y/%m/%d/%H%M')
-        date_end = datetime.datetime.strptime(os.path.relpath(all_files[-1], self.data_dir).split('.')[0], '%Y/%m/%d/%H%M')
+        prefix_start = self.data.prefixes[0]
+        prefix_end = self.data.prefixes[-1]
+        date_start = self.prefix_to_date(prefix_start)
+        date_end = self.prefix_to_date(prefix_end)
         return date_start, date_end
 
     def __len__(self):
@@ -101,10 +115,12 @@ class SDOMLlite(Dataset):
             print('Date not found in SDOML-lite : {}'.format(date))
             return None
 
+        prefix = self.date_to_prefix(date)
+        data = self.data[prefix]
         channels = []
         for channel in self.channels:
-            file = os.path.join(self.data_dir, date.strftime('%Y/%m/%d/%H%M') +'.'+channel+'.npy')
-            channel_data = np.load(file)
+            file = channel+'.npy'
+            channel_data = data[file]
             channels.append(channel_data)
         channels = np.stack(channels)
         channels = torch.from_numpy(channels)
@@ -254,43 +270,52 @@ class Sequences(Dataset):
 
 
 class TarRandomAccess():
-    def __init__(self, tar_files):
+    def __init__(self, data_dir):
+        tar_files = sorted(glob(os.path.join(data_dir, '*.tar')))
         self.index = {}
-        for tar_file in tar_files:
-            with tarfile.open(tar_file) as tar:
-                for info in tar.getmembers():
-                    self.index[info.name] = (tar.name, info)
+        index_cache = os.path.join(data_dir, 'tar_files_index')
+        if os.path.exists(index_cache):
+            print('Loading tar files index from cache: {}'.format(index_cache))
+            with open(index_cache, 'rb') as file:
+                self.index = pickle.load(file)
+        else:
+            for tar_file in tqdm(tar_files, desc='Indexing tar files'):
+                with tarfile.open(tar_file) as tar:
+                    for info in tar.getmembers():
+                        self.index[info.name] = (tar.name, info)
+            print('Saving tar files index to cache: {}'.format(index_cache))
+            with open(index_cache, 'wb') as file:
+                pickle.dump(self.index, file)
         self.file_names = list(self.index.keys())
 
     def __getitem__(self, file_name):
         d = self.index.get(file_name)
         if d is None:
             return None
-        tar_name, info = d
-        with tarfile.open(tar_name) as tar:
-            data = BytesIO(tar.extractfile(info).read())
+        tar_file, tar_member = d
+        with tarfile.open(tar_file) as tar:
+            data = BytesIO(tar.extractfile(tar_member).read())
         return data
 
-    
+
 class WebDataset():
     def __init__(self, data_dir, decode_func=None):
-        tar_files = glob(os.path.join(data_dir, '*.tar'))
-        self.tars = TarRandomAccess(tar_files)
+        self.tars = TarRandomAccess(data_dir)
         if decode_func is None:
             self.decode_func = self.decode
         else:
             self.decode_func = decode_func
         
-        self.samples = {}
+        self.index = {}
         self.prefixes = []
         for file_name in self.tars.file_names:
             p = file_name.split('.', 1)
             if len(p) == 2:
                 prefix, postfix = p
-                if prefix not in self.samples:
-                    self.samples[prefix] = []
+                if prefix not in self.index:
+                    self.index[prefix] = []
                     self.prefixes.append(prefix)
-                self.samples[prefix].append(postfix)
+                self.index[prefix].append(postfix)
 
     def decode(self, data, file_name):
         if file_name.endswith('.npy'):
@@ -300,23 +325,23 @@ class WebDataset():
         return data
         
     def __len__(self):
-        return len(self.samples)
+        return len(self.index)
     
     def __getitem__(self, index):
-        if isinstance(index, int):
-            prefix = self.prefixes[index]
-        elif isinstance(index, str):
+        if isinstance(index, str):
             prefix = index
+        elif isinstance(index, int):
+            prefix = self.prefixes[index]
         else:
             raise ValueError('Expecting index to be int or str')
-        sample = self.samples.get(prefix)
+        sample = self.index.get(prefix)
         if sample is None:
             return None
         
         data = {}
+        data['__prefix__'] = prefix
         for postfix in sample:
             file_name = prefix + '.' + postfix
             d = self.decode(self.tars[file_name], file_name)
             data[postfix] = d
-        return data                
-            
+        return data
