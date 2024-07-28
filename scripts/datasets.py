@@ -130,6 +130,8 @@ class SDOMLlite(Dataset):
 class BioSentinel(Dataset):
     def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00', normalize=True):
         self.data_file = data_file
+        if not os.path.exists(data_file):
+            raise ValueError('Data file not found: {}'.format(data_file))
         self.date_start = datetime.datetime.fromisoformat(date_start)
         self.date_end = datetime.datetime.fromisoformat(date_end)
         self.delta_minutes = 1
@@ -272,6 +274,8 @@ class Sequences(Dataset):
 class TarRandomAccess():
     def __init__(self, data_dir):
         tar_files = sorted(glob(os.path.join(data_dir, '*.tar')))
+        if len(tar_files) == 0:
+            raise ValueError('No tar files found in data directory: {}'.format(data_dir))
         self.index = {}
         index_cache = os.path.join(data_dir, 'tar_files_index')
         if os.path.exists(index_cache):

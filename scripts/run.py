@@ -28,9 +28,9 @@ def seed(seed=None):
     torch.manual_seed(seed)
 
 
-def test(model, test_date_start, test_date_end, args):
-    test_sdo = SDOMLlite(args.sdo_dir, date_start=test_date_start, date_end=test_date_end)
-    test_biosentinel = BioSentinel(args.biosentinel_file, date_start=test_date_start, date_end=test_date_end)
+def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_biosentinel, args):
+    test_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
+    test_biosentinel = BioSentinel(data_dir_biosentinel, date_start=test_date_start, date_end=test_date_end)
     test_sequences = Sequences([test_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
     test_loader = DataLoader(test_sequences, batch_size=args.batch_size, shuffle=False)
     
@@ -103,8 +103,9 @@ def main():
     description = 'FDL-X 2024, Radiation Team, preliminary machine learning experiments'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--target_dir', type=str, required=True, help='Directory to store results')
-    parser.add_argument('--sdo_dir', type=str, default='/disk2-ssd-8tb/data/sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
-    parser.add_argument('--biosentinel_file', type=str, default='/disk2-ssd-8tb/data/biosentinel/BPD_readings.csv', help='BioSentinel file')
+    parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
+    parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
+    parser.add_argument('--biosentinel_file', type=str, default='biosentinel/BPD_readings.csv', help='BioSentinel file')
     parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
@@ -138,12 +139,15 @@ def main():
     # make sure the target directory exists
     os.makedirs(args.target_dir, exist_ok=True)
 
+    data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+    data_dir_biosentinel = os.path.join(args.data_dir, args.biosentinel_file)
+
     if args.mode == 'train':
         print('\n*** Training mode\n')
 
         # For training and validation
-        sdo = SDOMLlite(args.sdo_dir)
-        biosentinel = BioSentinel(args.biosentinel_file, date_start=args.date_start, date_end=args.date_end)
+        sdo = SDOMLlite(data_dir_sdo)
+        biosentinel = BioSentinel(data_dir_biosentinel, date_start=args.date_start, date_end=args.date_end)
         sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
         # Testing with data seen during training
@@ -245,7 +249,7 @@ def main():
 
             # Test with unseen data
             print('*** Testing with unseen data')
-            test_predictions, test_ground_truths = test(model, args.test_date_start, args.test_date_end, args)
+            test_predictions, test_ground_truths = test(model, args.test_date_start, args.test_date_end, data_dir_sdo, data_dir_biosentinel, args)
             test_file = '{}/epoch_{:03d}_test.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_predictions, test_ground_truths, test_file)
             test_plot_file = '{}/epoch_{:03d}_test.pdf'.format(args.target_dir, epoch+1)
@@ -253,7 +257,7 @@ def main():
 
             # Test with seen data
             print('*** Testing with seen data')
-            test_seen_predictions, test_seen_ground_truths = test(model, test_seen_date_start, test_seen_date_end, args)
+            test_seen_predictions, test_seen_ground_truths = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_biosentinel, args)
             test_seen_file = '{}/epoch_{:03d}_test_seen.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_seen_predictions, test_seen_ground_truths, test_seen_file)
             test_seen_plot_file = '{}/epoch_{:03d}_test_seen.pdf'.format(args.target_dir, epoch+1)
