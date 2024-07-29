@@ -282,17 +282,17 @@ def main():
             test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_radlab, args)
 
             test_seen_file_normalized = '{}/epoch_{:03d}_test_seen.csv'.format(args.target_dir, epoch+1)
-            save_test_file(test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_file_normalized)
+            save_test_file(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_file_normalized)
             test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen.pdf'.format(args.target_dir, epoch+1)
-            save_test_plot(test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
+            save_test_plot(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
 
             test_seen_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
             test_seen_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
 
             test_seen_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.csv'.format(args.target_dir, epoch+1)
-            save_test_file(test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_file_unnormalized)
+            save_test_file(test_dates, test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_file_unnormalized)
             test_seen_plot_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.pdf'.format(args.target_dir, epoch+1)
-            save_test_plot(test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_plot_file_unnormalized)
+            save_test_plot(test_dates, test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_plot_file_unnormalized)
 
             shutil.copyfile(model_file, '{}/latest_model.pth'.format(args.target_dir))
             shutil.copyfile(plot_file, '{}/latest_loss.pdf'.format(args.target_dir))
