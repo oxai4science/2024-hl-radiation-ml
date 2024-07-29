@@ -165,6 +165,9 @@ class RadLab(Dataset):
         data_rows_original = len(self.data)
         print('Rows                 : {:,}'.format(data_rows_original))
 
+        self.data.replace([np.inf, -np.inf], np.nan, inplace=True)
+        self.data = self.data.dropna()
+
         if self.instrument == 'BPD':
             # remove all rows with 0 absorbed_dose_rate
             self.data = self.data[self.data['absorbed_dose_rate'] > 0]
@@ -210,13 +213,37 @@ class RadLab(Dataset):
 
     def normalize_data(self, data):
         if self.instrument == 'BPD':
-            return torch.log(data + 1e-8)
+            data = torch.log(data + 1e-8)
+            mean_log_data = -1.8559070825576782
+            std_log_data = 0.739709734916687
+            data = data - mean_log_data
+            data = data / std_log_data
+            return data
+        elif self.instrument == 'CRaTER-D1D2':
+            mean_log_data = 2.4395177364349365
+            std_log_data = 0.752591073513031
+            data = torch.log(data + 1e-8)
+            data = data - mean_log_data
+            data = data / std_log_data
+            return data
         else:
             raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
     
     def unnormalize_data(self, data):
         if self.instrument == 'BPD':
-            return torch.exp(data) - 1e-8        
+            mean_log_data = -1.8559070825576782
+            std_log_data = 0.739709734916687
+            data = data * std_log_data
+            data = data + mean_log_data
+            data = torch.exp(data) - 1e-8
+            return data
+        elif self.instrument == 'CRaTER-D1D2':
+            mean_log_data = 2.4395177364349365
+            std_log_data = 0.752591073513031
+            data = data * std_log_data
+            data = data + mean_log_data
+            data = torch.exp(data) - 1e-8
+            return data
         else:
             raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
             
