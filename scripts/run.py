@@ -57,8 +57,8 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
                         ground_truth_value = ground_truth_value
                     test_ground_truths.append(ground_truth_value)
                 pbar.update(1)
-    test_predictions = torch.stack(test_predictions).cpu().numpy()
-    test_ground_truths = torch.stack(test_ground_truths).cpu().numpy()
+    test_predictions = torch.stack(test_predictions)
+    test_ground_truths = torch.stack(test_ground_truths)
     return test_dates, test_predictions, test_ground_truths
 
 
