@@ -311,9 +311,9 @@ def main():
                 print('*** Testing with seen data')
                 test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_radlab, args)
 
-                test_seen_file_normalized = '{}/epoch_{:03d}_test_seen.csv'.format(args.target_dir, epoch+1)
+                test_seen_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.csv'.format(args.target_dir, epoch+1)
                 save_test_file(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_file_normalized)
-                test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen.pdf'.format(args.target_dir, epoch+1)
+                test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.pdf'.format(args.target_dir, epoch+1)
                 save_test_plot(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
 
                 test_seen_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
