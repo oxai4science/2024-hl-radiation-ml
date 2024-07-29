@@ -150,9 +150,9 @@ def main():
         print('\n*** Training mode\n')
 
         # For training and validation
-        sdo = SDOMLlite(data_dir_sdo)
-        biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end)
-        sequences = Sequences([sdo, biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+        dataset_sdo = SDOMLlite(data_dir_sdo)
+        dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end)
+        dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
         # Testing with data seen during training
         # Use the last 14 days in the training data
@@ -160,17 +160,17 @@ def main():
         test_seen_date_end = args.date_end
 
         # Split sequences into train and validation
-        valid_size = int(args.valid_proportion * len(sequences))
-        train_size = len(sequences) - valid_size
-        sequences_train, sequences_valid = random_split(sequences, [train_size, valid_size])
+        valid_size = int(args.valid_proportion * len(dataset_sequences))
+        train_size = len(dataset_sequences) - valid_size
+        dataset_sequences_train, dataset_sequences_valid = random_split(dataset_sequences, [train_size, valid_size])
 
-        print('\nTrain size: {:,}'.format(len(sequences_train)))
-        print('Valid size: {:,}'.format(len(sequences_valid)))
+        print('\nTrain size: {:,}'.format(len(dataset_sequences_train)))
+        print('Valid size: {:,}'.format(len(dataset_sequences_valid)))
 
-        train_loader = DataLoader(sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
-        valid_loader = DataLoader(sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+        train_loader = DataLoader(dataset_sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
+        valid_loader = DataLoader(dataset_sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-        model = SDOSequence(channels=len(sdo.channels), embedding_dim=1024, sequence_length=args.sequence_length)
+        model = SDOSequence(channels=len(dataset_sdo.channels), embedding_dim=1024, sequence_length=args.sequence_length)
         model = model.to(device)
 
         num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -260,8 +260,8 @@ def main():
             test_plot_file_normalized = '{}/epoch_{:03d}_test_normalized.pdf'.format(args.target_dir, epoch+1)
             save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized)
 
-            test_predictions_unnormalized = biosentinel.unnormalize_data(test_predictions_normalized)
-            test_ground_truths_unnormalized = biosentinel.unnormalize_data(test_ground_truths_normalized)
+            test_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_predictions_normalized)
+            test_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
 
             test_file_unnormalized = '{}/epoch_{:03d}_test_unnormalized.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
@@ -278,8 +278,8 @@ def main():
             test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen.pdf'.format(args.target_dir, epoch+1)
             save_test_plot(test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
 
-            test_seen_predictions_unnormalized = biosentinel.unnormalize_data(test_seen_predictions_normalized)
-            test_seen_ground_truths_unnormalized = biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
+            test_seen_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
+            test_seen_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
 
             test_seen_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_file_unnormalized)
