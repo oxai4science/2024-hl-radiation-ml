@@ -182,6 +182,7 @@ def main():
         data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
         data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
+        sys.stdout.flush()
         if args.mode == 'train':
             print('\n*** Training mode\n')
 
