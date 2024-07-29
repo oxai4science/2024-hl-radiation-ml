@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import Dataset
 import numpy as np
 from glob import glob
 import os
@@ -10,6 +10,7 @@ from io import BytesIO
 import tarfile
 import pickle
 from functools import lru_cache
+import duckdb
 
 
 class SDOMLlite(Dataset):
@@ -127,77 +128,119 @@ class SDOMLlite(Dataset):
         return channels
 
 
-class BioSentinel(Dataset):
-    def __init__(self, data_file, date_start='2022-11-16T11:00:00', date_end='2024-05-14T19:30:00', normalize=True):
-        self.data_file = data_file
-        if not os.path.exists(data_file):
-            raise ValueError('Data file not found: {}'.format(data_file))
-        self.date_start = datetime.datetime.fromisoformat(date_start)
-        self.date_end = datetime.datetime.fromisoformat(date_end)
-        self.delta_minutes = 1
+class RadLab(Dataset):
+    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True):
+        print('\nRadLab')
+        print('File                 : {}'.format(file_name))
+        self.instrument = instrument
+        dm = {}
+        dm['Lidal'] = 5
+        dm['MSL-RAD-Surface'] = 17
+        dm['ALTEA-Survey'] = 1
+        dm['CRaTER-D1D2'] = 60
+        dm['BPD'] = 1
+        if self.instrument in dm:
+            self.delta_minutes = dm[self.instrument]
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(instrument))
+        
+        # table names: app_metadata, coordinates, instruments, readings, trajectories
+        # readings table
+        # columns and types: timestamp (double), instrument_id (varchar), direction (varchar), absorbed_dose_rate (double), dose_equivalent_rate (double),flux (double)
+        # distinct values in instrument_id: ALTEA-Survey, MSL-RAD-Surface, DosTel2, RAD-NOD3A5-pre, Liulin-MO-AB-Cruise, Liulin-MO-CD-Circular, TEPC-SMP330-pre, REM-LAB1O3-pre, REM-COL1A2-pre, RAD-NOD2P3-pre, Liulin-MO-AB-Circular, BPD, REM-NOD1SSC22-pre, TEPC-SMP327-pre, Liulin-5-D2, REM-CUPSSC17-pre, RAD-JPM1D5-pre, RAD-COL1A2-pre, Liulin-MO-CD-Elliptic, Liulin-MO-AB-Elliptic, IV-TEPC-NOD2DCQ-pre, CRaTER-D1D2, RAD-LAB1O3-pre, LND, DosTel1, REM-JPM1FD4-pre, IV-TEPC-NOD3FD3-pre, IV-TEPC-SMP328-pre, IV-TEPC-COL1A2-pre, Liulin-5-D1, Liulin-5-D3, REM-Lid, REM-NOD3SSC24-pre, REM-LABSSC8-pre, Liulin-MO-CD-Cruise, IV-TEPC-NOD2PD3-pre, Lidal, IV-TEPC-NOD2PCQ-pr
+        con = duckdb.connect(file_name)
+        instruments_available = list(con.execute('SELECT DISTINCT instrument_id FROM readings').fetchdf().to_numpy().reshape(-1))
+        print('Instruments available: {}'.format(', '.join(instruments_available)))
+        print('Instrument selected  : {}'.format(self.instrument))
+        print('Delta minutes        : {:,}'.format(self.delta_minutes))
         self.normalize = normalize
+        print('Normalize            : {}'.format(self.normalize))
+        
+        self.data = con.execute('SELECT timestamp, instrument_id, absorbed_dose_rate FROM readings where instrument_id=\'{}\''.format(instrument)).fetchdf()
+        self.data = self.data.sort_values(by='timestamp')
+        self.data['datetime'] = pd.to_datetime(self.data['timestamp'], unit='s', origin='unix', utc=True).dt.tz_localize(None)
+        self.data = self.data.drop(columns=['timestamp'])
+        self.data['absorbed_dose_rate'] = self.data['absorbed_dose_rate'].astype(np.float32)
 
-        print('\nBioSentinel')
-        print('Data file : {}'.format(self.data_file))
-        print('Start date: {}'.format(self.date_start))
-        print('End date  : {}'.format(self.date_end))
-        print('Delta     : {} minutes'.format(self.delta_minutes))
-        self.data = self.process_data(data_file)
+        data_rows_original = len(self.data)
+        print('Rows                 : {:,}'.format(data_rows_original))
+
+        if self.instrument == 'BPD':
+            # remove all rows with 0 absorbed_dose_rate
+            self.data = self.data[self.data['absorbed_dose_rate'] > 0]
+        elif self.instrument == 'CRaTER-D1D2':
+            self.data = self.data
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
+        
+        # Get dates available
         self.dates = [date.to_pydatetime() for date in self.data['datetime']]
         self.dates_set = set(self.dates)
+        self.date_start = self.dates[0]
+        self.date_end = self.dates[-1]
 
-    def process_data(self, data_file):
-        data = pd.read_csv(data_file)
-        print('Rows before filtering       : {:,}'.format(len(data)))
-        data['datetime'] = pd.to_datetime(data['timestamp_utc']).dt.tz_localize(None)
+        # Adjust dates available
+        if date_start is not None:
+            date_start = datetime.datetime.fromisoformat(date_start)
+            if (date_start >= self.date_start) and (date_start < self.date_end):
+                self.date_start = date_start
+            else:
+                print('Start date out of range, using default')
+        if date_end is not None:
+            date_end = datetime.datetime.fromisoformat(date_end)
+            if (date_end > self.date_start) and (date_end <= self.date_end):
+                self.date_end = date_end
+            else:
+                print('End date out of range, using default')        
 
-        # filter out rows before start date and after end date
-        data = data[(data['datetime'] >=self.date_start) & (data['datetime'] <=self.date_end)]
-        print('Rows after date filter      : {:,}'.format(len(data)))
+        # Filter out dates outside the range
+        self.data = self.data[(self.data['datetime'] >=self.date_start) & (self.data['datetime'] <=self.date_end)]
+    
+        # Get dates available (redo to make sure things match up)
+        self.dates = [date.to_pydatetime() for date in self.data['datetime']]
+        self.dates_set = set(self.dates)
+        self.date_start = self.dates[0]
+        self.date_end = self.dates[-1]
+        print('Start date           : {}'.format(self.date_start))
+        print('End date             : {}'.format(self.date_end))
 
-        # erase all columns except absorbed_dose_rate and datetime
-        data = data[['datetime', 'absorbed_dose_rate']]
-        
-        # remove all rows with 0 absorbed_dose_rate
-        data = data[data['absorbed_dose_rate'] > 0]
-        print('Rows after removing 0s      : {:,}'.format(len(data)))
+        print('Rows after processing: {:,}'.format(len(self.data)))
+        print('Rows dropped         : {:,}'.format(data_rows_original - len(self.data)))
 
-        # q_low = data['absorbed_dose_rate'].quantile(0.01)
-        # q_hi  = data['absorbed_dose_rate'].quantile(0.99)
-        # data = data[(data['absorbed_dose_rate'] < q_hi) & (data['absorbed_dose_rate'] > q_low)]
-        # print('Rows after removing outliers: {:,}'.format(len(data)))
 
-        data['absorbed_dose_rate'] = data['absorbed_dose_rate'].astype(np.float32)
-
-        return data
-
+    def normalize_data(self, data):
+        if self.instrument == 'BPD':
+            return torch.log(data + 1e-8)
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
+    
+    def unnormalize_data(self, data):
+        if self.instrument == 'BPD':
+            return torch.exp(data) - 1e-8        
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
+            
     def __len__(self):
         return len(self.data)
     
     def __getitem__(self, index):
-        if isinstance(index, int):
-            date = self.data.iloc[index]['datetime']
-        elif isinstance(index, datetime.datetime):
+        if isinstance(index, datetime.datetime):
             date = index
         elif isinstance(index, str):
             date = datetime.datetime.fromisoformat(index)
+        elif isinstance(index, int):
+            date = self.data.iloc[index]['datetime']
         else:
             raise ValueError('Expecting index to be int, datetime.datetime, or str (in the format of 2022-11-01T00:01:00)')
         data = self.get_data(date)
-        return data, date.isoformat()
-
-    def normalize_data(self, data):
-        return torch.log(data + 1e-8)
-    
-    def unnormalize_data(self, data):
-        return torch.exp(data) - 1e-8
+        return data, date.isoformat()            
 
     def get_data(self, date):
         if date < self.date_start or date > self.date_end:
-            raise ValueError('Date ({}) out of range for BioSentinel ({} - {})'.format(date, self.date_start, self.date_end))        
+            raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
 
         if date not in self.dates_set:
-            print('Date not found in BioSentinel : {}'.format(date))
+            print('Date not found in RadLab ({}) : {}'.format(self.instrument, date))
             return None
 
         data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
@@ -221,13 +264,16 @@ class Sequences(Dataset):
         self.date_end = min([dataset.date_end for dataset in self.datasets])
         if self.date_start > self.date_end:
             raise ValueError('No overlapping date range between datasets')
-        self.sequences = self.find_sequences()
 
         print('\nSequences')
         print('Start date              : {}'.format(self.date_start))
         print('End date                : {}'.format(self.date_end))
         print('Delta                   : {} minutes'.format(self.delta_minutes))
         print('Sequence length         : {}'.format(self.sequence_length))
+
+        self.sequences = self.find_sequences()
+        if len(self.sequences) == 0:
+            raise ValueError('No sequences found')
         print('Number of sequences     : {:,}'.format(len(self.sequences)))
 
     def __len__(self):
