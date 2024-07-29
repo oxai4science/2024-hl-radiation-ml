@@ -63,6 +63,10 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
 
 
 def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
+    if torch.is_tensor(test_predictions):
+        test_predictions = test_predictions.cpu().numpy()
+    if torch.is_tensor(test_ground_truths):
+        test_ground_truths = test_ground_truths.cpu().numpy()
     print('\nSaving test results to {}'.format(test_file))
     with open(test_file, 'w') as f:
         f.write('date,prediction,ground_truth\n')
@@ -71,6 +75,10 @@ def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
 
 
 def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file):
+    if torch.is_tensor(test_predictions):
+        test_predictions = test_predictions.cpu().numpy()
+    if torch.is_tensor(test_ground_truths):
+        test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
     plt.figure(figsize=(24, 6))
     plt.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
