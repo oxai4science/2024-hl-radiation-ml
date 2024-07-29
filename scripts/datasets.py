@@ -109,8 +109,8 @@ class SDOMLlite(Dataset):
         return data, date.isoformat()
     
     def get_data(self, date):
-        if date < self.date_start or date > self.date_end:
-            raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
+        # if date < self.date_start or date > self.date_end:
+        #     raise ValueError('Date ({}) out of range for SDOML-lite ({} - {})'.format(date, self.date_start, self.date_end))
 
         if date not in self.dates_set:
             print('Date not found in SDOML-lite : {}'.format(date))
@@ -263,8 +263,8 @@ class RadLab(Dataset):
         return data, date.isoformat()            
 
     def get_data(self, date):
-        if date < self.date_start or date > self.date_end:
-            raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
+        # if date < self.date_start or date > self.date_end:
+        #     raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
 
         if date not in self.dates_set:
             print('Date not found in RadLab ({}) : {}'.format(self.instrument, date))
