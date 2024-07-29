@@ -263,17 +263,17 @@ def main():
             print('*** Testing with unseen data')
             test_dates, test_predictions_normalized, test_ground_truths_normalized = test(model, args.test_date_start, args.test_date_end, data_dir_sdo, data_dir_radlab, args)
 
-            test_file_normalized = '{}/epoch_{:03d}_test_normalized.csv'.format(args.target_dir, epoch+1)
+            test_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
-            test_plot_file_normalized = '{}/epoch_{:03d}_test_normalized.pdf'.format(args.target_dir, epoch+1)
+            test_plot_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.pdf'.format(args.target_dir, epoch+1)
             save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized)
 
             test_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_predictions_normalized)
             test_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
 
-            test_file_unnormalized = '{}/epoch_{:03d}_test_unnormalized.csv'.format(args.target_dir, epoch+1)
+            test_file_unnormalized = '{}/epoch_{:03d}_test_unseen_unnormalized.csv'.format(args.target_dir, epoch+1)
             save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
-            test_plot_file_unnormalized = '{}/epoch_{:03d}_test_unnormalized.pdf'.format(args.target_dir, epoch+1)
+            test_plot_file_unnormalized = '{}/epoch_{:03d}_test_unseen_unnormalized.pdf'.format(args.target_dir, epoch+1)
             save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized)
 
 
@@ -296,12 +296,14 @@ def main():
 
             shutil.copyfile(model_file, '{}/latest_model.pth'.format(args.target_dir))
             shutil.copyfile(plot_file, '{}/latest_loss.pdf'.format(args.target_dir))
-            shutil.copyfile(test_file_normalized, '{}/latest_test_normalized.csv'.format(args.target_dir))
-            shutil.copyfile(test_plot_file_normalized, '{}/latest_test_normalized.pdf'.format(args.target_dir))
+
+            shutil.copyfile(test_file_normalized, '{}/latest_test_unseen_normalized.csv'.format(args.target_dir))
+            shutil.copyfile(test_plot_file_normalized, '{}/latest_test_unseen_normalized.pdf'.format(args.target_dir))
+            shutil.copyfile(test_file_unnormalized, '{}/latest_test_unseen_unnormalized.csv'.format(args.target_dir))
+            shutil.copyfile(test_plot_file_unnormalized, '{}/latest_test_unseen_unnormalized.pdf'.format(args.target_dir))
+
             shutil.copyfile(test_seen_file_normalized, '{}/latest_test_seen_normalized.csv'.format(args.target_dir))
             shutil.copyfile(test_seen_plot_file_normalized, '{}/latest_test_seen_normalized.pdf'.format(args.target_dir))
-            shutil.copyfile(test_file_unnormalized, '{}/latest_test_unnormalized.csv'.format(args.target_dir))
-            shutil.copyfile(test_plot_file_unnormalized, '{}/latest_test_unnormalized.pdf'.format(args.target_dir))
             shutil.copyfile(test_seen_file_unnormalized, '{}/latest_test_seen_unnormalized.csv'.format(args.target_dir))
             shutil.copyfile(test_seen_plot_file_unnormalized, '{}/latest_test_seen_unnormalized.pdf'.format(args.target_dir))
         
