@@ -168,7 +168,7 @@ def main():
 
     with Tee(log_file):
         print(description)    
-        
+        print('Log file: {}'.format(log_file))
         start_time = datetime.datetime.now()
         print('Start time: {}'.format(start_time))
         print('Arguments:\n{}'.format(' '.join(sys.argv[1:])))
@@ -219,6 +219,7 @@ def main():
             train_losses = []
             valid_losses = []
             for epoch in range(args.epochs):
+                print('\n*** Epoch: {:,}/{:,}'.format(epoch+1, args.epochs))
                 print('*** Training')
                 model.train()
                 with tqdm(total=len(train_loader)) as pbar:
