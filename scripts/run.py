@@ -48,13 +48,13 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
                 for i in range(len(output)):
                     prediction_date = dates[i][-1]
                     test_dates.append(prediction_date)
-                    prediction_value = float(output[i])
+                    prediction_value = output[i]
                     test_predictions.append(prediction_value)
                     ground_truth_value, _ = test_biosentinel[prediction_date]
                     if ground_truth_value is None:
-                        ground_truth_value = float('nan')
+                        ground_truth_value = torch.tensor(float('nan'))
                     else:
-                        ground_truth_value = float(ground_truth_value)
+                        ground_truth_value = ground_truth_value
                     test_ground_truths.append(ground_truth_value)
                 pbar.update(1)
     test_predictions = torch.stack(test_predictions).cpu().numpy()
