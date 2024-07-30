@@ -153,9 +153,9 @@ def main():
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
-    parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
+    parser.add_argument('--date_start', type=str, default='2024-01-01T00:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-01T00:00:00', help='End date')
-    parser.add_argument('--test_date_start', type=str, default='2024-05-01T00:00:00', help='Start date')
+    parser.add_argument('--test_date_start', type=str, default='2023-05-01T00:00:00', help='Start date')
     parser.add_argument('--test_date_end', type=str, default='2024-05-14T19:30:00', help='End date')
     parser.add_argument('--model_file', type=str, help='Model file')
 
