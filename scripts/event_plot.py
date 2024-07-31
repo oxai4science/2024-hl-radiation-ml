@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--date_start', type=str, default='2022-11-18T00:00:00', help='Start date')
+    parser.add_argument('--date_start', type=str, default='2022-11-17T23:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2022-11-18T23:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
@@ -64,7 +64,12 @@ def main():
     print('Delta minutes   : {}'.format(args.delta_minutes))
     print('Number of frames: {:,}'.format(num_frames))
 
-    fig, axs = plt.subplot_mosaic([[c for c in channels],['biosentinel' for _ in range(len(channels))],['crater' for _ in range(len(channels))]], figsize=(12, 8))
+    fig, axs = plt.subplot_mosaic([['hmi_m', 'hmi_m', 'aia_0131', 'aia_0131', 'aia_0171', 'aia_0171'], 
+                                   ['hmi_m', 'hmi_m', 'aia_0131', 'aia_0131', 'aia_0171', 'aia_0171'],
+                                   ['aia_0193', 'aia_0193', 'aia_0211', 'aia_0211', 'aia_1600', 'aia_1600'],
+                                   ['aia_0193', 'aia_0193', 'aia_0211', 'aia_0211', 'aia_1600', 'aia_1600'],
+                                   ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
+                                   ['crater', 'crater', 'crater', 'crater', 'crater', 'crater']], figsize=(12, 8))
 
     ims = {}
     for c in channels:
