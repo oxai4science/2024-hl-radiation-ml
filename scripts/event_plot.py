@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from tqdm import tqdm
 
 from datasets import SDOMLlite, RadLab
 
@@ -21,7 +22,7 @@ def main():
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--date_start', type=str, default='2022-11-18T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2022-11-18T12:00:00', help='End date')
+    parser.add_argument('--date_end', type=str, default='2022-11-18T23:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -85,33 +86,33 @@ def main():
     ax = axs['crater']
     ax.set_title('CRaTER-D1D2')
     crater_dates, crater_values = crater.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-    print(crater_dates)
-    print(crater_values)
     ax.plot(crater_dates, crater_values, color='green', alpha=0.75)
     ax.tick_params(rotation=45)
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
     ims['crater'] = ax.axvline(date_start, color='red', linestyle='-')
     
-    def run(frame):
-        date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
-        print('Frame {:,} - {}'.format(frame, date))
-        sdo_data, _ = sdo[date]
-        if sdo_data is None:
-            return
-        for i, c in enumerate(channels):
-            data = sdo_data[i].cpu().numpy()
-            ims[c].set_data(data)
-        ims['biosentinel'].set_xdata([date, date])
-        ims['crater'].set_xdata([date, date])
+    with tqdm(total=num_frames) as pbar:
+        def run(frame):
+            date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
+            pbar.set_description('Frame {}'.format(date))
+            pbar.update(1)
+            sdo_data, _ = sdo[date]
+            if sdo_data is None:
+                return
+            for i, c in enumerate(channels):
+                data = sdo_data[i].cpu().numpy()
+                ims[c].set_data(data)
+            ims['biosentinel'].set_xdata([date, date])
+            ims['crater'].set_xdata([date, date])
 
-    plt.tight_layout()
-    anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
-    
-    writervideo = animation.FFMpegWriter(fps=args.fps)
-    file_name = os.path.join(args.target_dir, 'event_plot.mp4')
-    anim.save(file_name, writer=writervideo)
-    plt.close(fig)
+        plt.tight_layout()
+        anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
+        
+        writervideo = animation.FFMpegWriter(fps=args.fps)
+        file_name = os.path.join(args.target_dir, 'event_plot.mp4')
+        anim.save(file_name, writer=writervideo)
+        plt.close(fig)
 
 
 
