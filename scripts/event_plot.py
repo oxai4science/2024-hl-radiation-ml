@@ -21,7 +21,7 @@ def main():
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--date_start', type=str, default='2022-11-18T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2022-11-18T05:00:00', help='End date')
+    parser.add_argument('--date_end', type=str, default='2022-11-18T12:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -42,38 +42,68 @@ def main():
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
     channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']
+    vis_lims = {}
+    vis_lims['hmi_m'] = 0., 1./2
+    vis_lims['aia_0131'] = 0., 0.68/2
+    vis_lims['aia_0171'] = 0., 1./2
+    vis_lims['aia_0193'] = 0., 0.58/2
+    vis_lims['aia_0211'] = 0., 1./2
+    vis_lims['aia_1600'] = 0., 0.8/2
+
     sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=args.date_start, date_end=args.date_end)
-    biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end)
+    biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
+    crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
 
     date_start = datetime.datetime.fromisoformat(args.date_start)
     date_end = datetime.datetime.fromisoformat(args.date_end)
-    num_frames = int(((date_end - date_start).total_seconds() / 60) / args.delta_minutes)
+    num_frames = int(((date_end - date_start).total_seconds() / 60) / args.delta_minutes) + 1
 
     print('\nDate start      : {}'.format(date_start))
     print('Date end        : {}'.format(date_end))
     print('Delta minutes   : {}'.format(args.delta_minutes))
     print('Number of frames: {:,}'.format(num_frames))
 
-    fig, axs = plt.subplots(6, 2, figsize=(12, 12))
+    fig, axs = plt.subplot_mosaic([[c for c in channels],['biosentinel' for _ in range(len(channels))],['crater' for _ in range(len(channels))]], figsize=(12, 8))
 
     ims = {}
-    for i, channel in enumerate(channels):
-        axs[i,0].set_title('SDO/AIA {}'.format(channel.upper()))
-        axs[i,0].set_xticks([])
-        axs[i,0].set_yticks([])        
-        im = axs[i,0].imshow(np.zeros([512,512]), vmin=0, vmax=1, cmap='gray')
-        ims[(i,0)] = im
+    for c in channels:
+        ax = axs[c]
+        ax.set_title('SDO {}'.format(c))
+        ax.set_xticks([])
+        ax.set_yticks([])
+        im = ax.imshow(np.zeros([512,512]), vmin=vis_lims[c][0], vmax=vis_lims[c][1], cmap='gray')
+        ims[c] = im
 
+    ax = axs['biosentinel']
+    ax.set_title('Biosentinel BPD')
+    bio_dates, bio_values = biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+    ax.plot(bio_dates, bio_values, color='blue', alpha=0.75)
+    # ax.tick_params(rotation=45)
+    # ax.set_xticklabels([])
+    ims['biosentinel'] = ax.axvline(date_start, color='red', linestyle='-')
+
+    ax = axs['crater']
+    ax.set_title('CRaTER-D1D2')
+    crater_dates, crater_values = crater.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+    print(crater_dates)
+    print(crater_values)
+    ax.plot(crater_dates, crater_values, color='green', alpha=0.75)
+    ax.tick_params(rotation=45)
+    ax.set_xticks(axs['biosentinel'].get_xticks())
+    ax.set_xlim(axs['biosentinel'].get_xlim())
+    ims['crater'] = ax.axvline(date_start, color='red', linestyle='-')
+    
     def run(frame):
         date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
+        print('Frame {:,} - {}'.format(frame, date))
         sdo_data, _ = sdo[date]
         if sdo_data is None:
             return
-        print('Frame {:,} - {}'.format(frame, date))
-        for i, channel in enumerate(channels):
+        for i, c in enumerate(channels):
             data = sdo_data[i].cpu().numpy()
-            print(data.min(), data.max())
-            ims[(i,0)].set_data(data)
+            ims[c].set_data(data)
+        ims['biosentinel'].set_xdata([date, date])
+        ims['crater'].set_xdata([date, date])
 
     plt.tight_layout()
     anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)

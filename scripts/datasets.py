@@ -130,7 +130,7 @@ class SDOMLlite(Dataset):
 
 # BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T19:30:00
 class RadLab(Dataset):
-    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True):
+    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5):
         print('\nRadLab')
         print('File                 : {}'.format(file_name))
         self.instrument = instrument
@@ -156,6 +156,8 @@ class RadLab(Dataset):
         print('Delta minutes        : {:,}'.format(self.delta_minutes))
         self.normalize = normalize
         print('Normalize            : {}'.format(self.normalize))
+        self.rewind_minutes = rewind_minutes
+        print('Rewind minutes       : {:,}'.format(self.rewind_minutes))
         
         self.data = con.execute('SELECT timestamp, instrument_id, absorbed_dose_rate FROM readings where instrument_id=\'{}\''.format(instrument)).fetchdf()
         self.data = self.data.sort_values(by='timestamp')
@@ -268,17 +270,48 @@ class RadLab(Dataset):
         #     raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
 
         if date not in self.dates_set:
-            print('Date not found in RadLab ({}) : {}'.format(self.instrument, date))
-            return None
-
-        data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
-        if len(data) == 0:
-            raise RuntimeError('Should not happen')
+            print('RadLab ({}) date not found: {}'.format(self.instrument, date))
+            # find the most recent date available before date, in pandas dataframe self.data
+            dates_available = self.data[self.data['datetime'] < date]
+            if len(dates_available) > 0:
+                date_previous = dates_available.iloc[-1]['datetime']
+                if date - date_previous < datetime.timedelta(minutes=self.rewind_minutes):
+                    print('RadLab ({}) rewinding to  : {}'.format(self.instrument, date_previous))
+                    data = self.data[self.data['datetime'] == date_previous]['absorbed_dose_rate']
+                else:
+                    return None
+            else:
+                return None
+        else:
+            data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
+            if len(data) == 0:
+                raise RuntimeError('Should not happen')
         data = torch.tensor(data.values[0])
         if self.normalize:
             data = self.normalize_data(data)
 
         return data
+
+    def get_series(self, date_start, date_end, delta_minutes=None, omit_missing=True):
+        if delta_minutes is None:
+            delta_minutes = self.delta_minutes
+        dates = []
+        values = []
+        date = date_start
+        while date < date_end:
+            value = self.get_data(date)
+            value_available = True
+            if value is None:
+                if omit_missing:
+                    value_available = False
+                else:
+                    davalueta = torch.tensor(float('nan'))
+            if value_available:
+                dates.append(date)
+                values.append(value)
+            date += datetime.timedelta(minutes=delta_minutes)
+        values = torch.stack(values).flatten()
+        return dates, values
 
 
 class Sequences(Dataset):
