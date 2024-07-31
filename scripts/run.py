@@ -148,7 +148,7 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--seed', type=int, default=0, help='Random number generator seed')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=1e-05, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
