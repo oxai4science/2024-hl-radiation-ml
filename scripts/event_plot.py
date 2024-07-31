@@ -7,12 +7,14 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import matplotlib.dates as mdates
+
 from tqdm import tqdm
 
 from datasets import SDOMLlite, RadLab
 
-
 matplotlib.use('Agg')
+
 
 def main():
     description = 'FDL-X 2024, Radiation Team, data statistics'
@@ -21,8 +23,8 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--date_start', type=str, default='2022-11-17T23:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2022-11-18T23:00:00', help='End date')
+    parser.add_argument('--date_start', type=str, default='2023-08-05T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2023-08-06T23:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -44,12 +46,12 @@ def main():
 
     channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']
     vis_lims = {}
-    vis_lims['hmi_m'] = 0., 1./2
-    vis_lims['aia_0131'] = 0., 0.68/2
+    vis_lims['hmi_m'] = 0., 1./1.5
+    vis_lims['aia_0131'] = 0., 0.68/15
     vis_lims['aia_0171'] = 0., 1./2
-    vis_lims['aia_0193'] = 0., 0.58/2
+    vis_lims['aia_0193'] = 0., 0.58/4
     vis_lims['aia_0211'] = 0., 1./2
-    vis_lims['aia_1600'] = 0., 0.8/2
+    vis_lims['aia_1600'] = 0., 0.8/3
 
     sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=args.date_start, date_end=args.date_end)
     biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
@@ -64,12 +66,9 @@ def main():
     print('Delta minutes   : {}'.format(args.delta_minutes))
     print('Number of frames: {:,}'.format(num_frames))
 
-    fig, axs = plt.subplot_mosaic([['hmi_m', 'hmi_m', 'aia_0131', 'aia_0131', 'aia_0171', 'aia_0171'], 
-                                   ['hmi_m', 'hmi_m', 'aia_0131', 'aia_0131', 'aia_0171', 'aia_0171'],
-                                   ['aia_0193', 'aia_0193', 'aia_0211', 'aia_0211', 'aia_1600', 'aia_1600'],
-                                   ['aia_0193', 'aia_0193', 'aia_0211', 'aia_0211', 'aia_1600', 'aia_1600'],
+    fig, axs = plt.subplot_mosaic([['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'],
                                    ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
-                                   ['crater', 'crater', 'crater', 'crater', 'crater', 'crater']], figsize=(12, 8))
+                                   ['crater', 'crater', 'crater', 'crater', 'crater', 'crater']], figsize=(20, 10), height_ratios=[2, 1, 1])
 
     ims = {}
     for c in channels:
@@ -85,7 +84,8 @@ def main():
     bio_dates, bio_values = biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
     ax.plot(bio_dates, bio_values, color='blue', alpha=0.75)
     # ax.tick_params(rotation=45)
-    # ax.set_xticklabels([])
+    ax.set_xticklabels([])
+    ax.grid(color='#f0f0f0', zorder=0)
     ims['biosentinel'] = ax.axvline(date_start, color='red', linestyle='-')
 
     ax = axs['crater']
@@ -95,6 +95,9 @@ def main():
     ax.tick_params(rotation=45)
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
+    ax.grid(color='#f0f0f0', zorder=0)
+    myFmt = mdates.DateFormatter('%Y-%m-%d-%H-%M')
+    ax.xaxis.set_major_formatter(myFmt)
     ims['crater'] = ax.axvline(date_start, color='red', linestyle='-')
     
     with tqdm(total=num_frames) as pbar:
