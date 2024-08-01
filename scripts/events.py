@@ -120,7 +120,7 @@ events['date_start'] = events['date_start'].dt.ceil('15min')
 # count the number of times each unique prefix appears
 events['event_id'] = events.groupby('prefix').cumcount() + 1
 
-events_dict = {}
+EventCatalog = {}
 for prefix in events['prefix'].unique():
     events_with_prefix = events[events['prefix'] == prefix]
     num_events = len(events_with_prefix)
@@ -130,9 +130,7 @@ for prefix in events['prefix'].unique():
         date_start = event['date_start'].isoformat()
         date_end = event['date_end'].isoformat()
         max_pfu = event['max_pfu']
-        events_dict[event_id] = date_start, date_end, max_pfu
-
-events = events_dict
+        EventCatalog[event_id] = date_start, date_end, max_pfu
 
 # for event, val in events.items():
 #     print(event, val[0], val[1], val[2])

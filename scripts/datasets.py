@@ -152,7 +152,7 @@ class RadLab(Dataset):
         # readings table
         # columns and types: timestamp (double), instrument_id (varchar), direction (varchar), absorbed_dose_rate (double), dose_equivalent_rate (double),flux (double)
         # distinct values in instrument_id: ALTEA-Survey, MSL-RAD-Surface, DosTel2, RAD-NOD3A5-pre, Liulin-MO-AB-Cruise, Liulin-MO-CD-Circular, TEPC-SMP330-pre, REM-LAB1O3-pre, REM-COL1A2-pre, RAD-NOD2P3-pre, Liulin-MO-AB-Circular, BPD, REM-NOD1SSC22-pre, TEPC-SMP327-pre, Liulin-5-D2, REM-CUPSSC17-pre, RAD-JPM1D5-pre, RAD-COL1A2-pre, Liulin-MO-CD-Elliptic, Liulin-MO-AB-Elliptic, IV-TEPC-NOD2DCQ-pre, CRaTER-D1D2, RAD-LAB1O3-pre, LND, DosTel1, REM-JPM1FD4-pre, IV-TEPC-NOD3FD3-pre, IV-TEPC-SMP328-pre, IV-TEPC-COL1A2-pre, Liulin-5-D1, Liulin-5-D3, REM-Lid, REM-NOD3SSC24-pre, REM-LABSSC8-pre, Liulin-MO-CD-Cruise, IV-TEPC-NOD2PD3-pre, Lidal, IV-TEPC-NOD2PCQ-pr
-        con = duckdb.connect(file_name)
+        con = duckdb.connect(file_name, read_only=True)
         instruments_available = list(con.execute('SELECT DISTINCT instrument_id FROM readings').fetchdf().to_numpy().reshape(-1))
         print('Instruments available: {}'.format(', '.join(instruments_available)))
         print('Instrument selected  : {}'.format(self.instrument))
@@ -316,7 +316,8 @@ class RadLab(Dataset):
                 values.append(value)
             date += datetime.timedelta(minutes=delta_minutes)
         if len(dates) == 0:
-            raise ValueError('RadLab ({}) no data found between {} and {}'.format(self.instrument, date_start, date_end))
+            # raise ValueError('RadLab ({}) no data found between {} and {}'.format(self.instrument, date_start, date_end))
+            return None, None
         values = torch.stack(values).flatten()
         return dates, values
 

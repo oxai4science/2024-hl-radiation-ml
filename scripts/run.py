@@ -11,13 +11,14 @@ from torch.utils.data import DataLoader, random_split
 import torch.optim as optim
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 from tqdm import tqdm
 import shutil
 import traceback
 
 from datasets import SDOMLlite, RadLab, Sequences
 from models import SDOSequence
-from events import events
+from events import EventCatalog
 
 matplotlib.use('Agg')
 
@@ -105,13 +106,14 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
     if torch.is_tensor(test_ground_truths):
         test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
+    
     plt.figure(figsize=(24, 6))
     plt.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
     plt.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
     # plt.xlabel('Date')
     plt.ylabel('Absorbed dose rate')
     # Limit number of xticks
-    plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//40))
+    plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//20))
     # Rotate xticks
     plt.xticks(rotation=45)
     # Shift xticks so that the end of the text is at the tick
@@ -158,10 +160,7 @@ def main():
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-01T00:00:00', help='End date')
-    parser.add_argument('--test_date_start', type=str, default='2024-05-01T00:00:00', help='Start date')
-    parser.add_argument('--test_date_end', type=str, default='2024-05-14T19:30:00', help='End date')
-    parser.add_argument('--test_event_id', type=str, help='Test event ID')
-    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel02'], help='Test event IDs')
+    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel07', 'biosentinel01'], help='Test event IDs')
     parser.add_argument('--model_file', type=str, help='Model file')
 
     args = parser.parse_args()
@@ -345,47 +344,57 @@ def main():
         if args.mode == 'test':
             print('\n*** Testing mode\n')
 
+            checkpoint = torch.load(args.model_file)
             model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
             model = model.to(device)
-            checkpoint = torch.load(args.model_file)
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()
 
-            if args.test_event_id is not None:
-                print('\nEvent ID given, overriding date_start and date_end with event dates')
-                if args.test_event_id not in events:
-                    raise ValueError('Event ID not found in events: {}'.format(args.event_id))
-                args.date_start, args.date_end, max_pfu = events[args.test_event_id]
-                print('Event ID: {}'.format(args.test_event_id))
-                print('Date start: {}'.format(args.date_start))
-                print('Date end: {}'.format(args.date_end))
-
             minutes_before_start = args.sequence_length * args.delta_minutes
-            date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
-            date_end = datetime.datetime.fromisoformat(args.date_end)
 
-            test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
-
+            tests_to_run = []
             if args.test_event_id is not None:
-                file_prefix = 'test-event-{}-{}pfu-{}-{}'.format(args.test_event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
-                title = 'Event: {} (>10 MeV max: {} pfu)'.format(args.test_event_id, max_pfu)
+                print('\nEvent IDs given, will ignore date_start and date_end arguments and use event dates')
+
+                for event_id in args.test_event_id:
+                    if event_id not in EventCatalog:
+                        raise ValueError('Event ID not found in events: {}'.format(event_id))
+                    date_start, date_end, max_pfu = EventCatalog[event_id]
+                    print('Event ID: {}'.format(event_id))
+
+                    date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=minutes_before_start)
+                    date_end = datetime.datetime.fromisoformat(date_end)
+                    file_prefix = 'test-event-{}-{}pfu-{}-{}'.format(event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+                    title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
+                    tests_to_run.append((date_start, date_end, file_prefix, title))
+
             else:
+                print('\nEvent IDs not given, will use date_start and date_end arguments')
+
+                date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
+                date_end = datetime.datetime.fromisoformat(args.date_end)
                 file_prefix = 'test-event-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                 title = None
+                tests_to_run.append((date_start, date_end, file_prefix, title))
 
-            file_name = os.path.join(args.target_dir, file_prefix)
-            test_file_normalized = file_name + '_normalized.csv'
-            save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
-            test_plot_file_normalized = file_name + '_normalized.pdf'
-            save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized, title=title)
 
-            test_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
-            test_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
+            for date_start, date_end, file_prefix, title in tests_to_run:
 
-            test_file_unnormalized = file_name + '_unnormalized.csv'
-            save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
-            test_plot_file_unnormalized = file_name + '_unnormalized.pdf'
-            save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized, title=title)
+                test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
+
+                file_name = os.path.join(args.target_dir, file_prefix)
+                test_file_normalized = file_name + '_normalized.csv'
+                save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
+                test_plot_file_normalized = file_name + '_normalized.pdf'
+                save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized, title=title)
+
+                test_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
+                test_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
+
+                test_file_unnormalized = file_name + '_unnormalized.csv'
+                save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
+                test_plot_file_unnormalized = file_name + '_unnormalized.pdf'
+                save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized, title=title)
 
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
