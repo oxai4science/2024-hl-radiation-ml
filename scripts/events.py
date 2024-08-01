@@ -55,26 +55,26 @@ def get_event_biosentinel(event_id):
 events = {}
 for i in range(len(events_biosentinel)):
     # zero pad event_id to as many digits as there are events
-    event_id = 'biosentinel-' + str(i+1).zfill(len(str(len(events_biosentinel))))
+    event_id = 'biosentinel' + str(i+1).zfill(len(str(len(events_biosentinel))))
     events[event_id] = get_event_biosentinel(i)
 
 # event_id       date_start          date_end            max_pfu
-# biosentinel-01 2023-02-25T06:15:00 2023-02-28T01:40:00 58
-# biosentinel-02 2023-03-09T14:00:00 2023-03-26T09:25:00 22
-# biosentinel-03 2023-04-23T18:15:00 2023-04-23T18:50:00 26
-# biosentinel-04 2023-05-07T10:30:00 2023-05-12T08:50:00 38
-# biosentinel-05 2023-05-08T21:15:00 2023-05-13T20:20:00 83
-# biosentinel-06 2023-07-16T04:45:00 2023-07-16T13:35:00 18
-# biosentinel-07 2023-07-17T15:15:00 2023-07-19T12:15:00 620
-# biosentinel-08 2023-07-28T06:30:00 2023-07-31T15:20:00 154
-# biosentinel-09 2023-08-04T22:15:00 2023-08-07T08:45:00 18
-# biosentinel-10 2023-08-06T03:00:00 2023-08-14T19:25:00 47
-# biosentinel-11 2023-09-01T01:15:00 2023-09-01T16:10:00 25
-# biosentinel-12 2023-12-15T22:45:00 2023-12-16T03:15:00 13
-# biosentinel-13 2024-01-02T19:15:00 2024-01-07T11:35:00 20
-# biosentinel-14 2024-01-28T06:45:00 2024-02-01T17:05:00 137
-# biosentinel-15 2024-02-08T22:45:00 2024-02-12T02:25:00 187
-# biosentinel-16 2024-02-09T16:15:00 2024-02-21T16:05:00 118
-# biosentinel-17 2024-03-22T12:15:00 2024-03-26T06:50:00 956
-# biosentinel-18 2024-05-10T05:15:00 2024-05-11T18:45:00 208
-# biosentinel-19 2024-05-10T12:15:00 2024-05-13T03:10:00 116
+# biosentinel01 2023-02-25T06:15:00 2023-02-28T01:40:00 58
+# biosentinel02 2023-03-09T14:00:00 2023-03-26T09:25:00 22
+# biosentinel03 2023-04-23T18:15:00 2023-04-23T18:50:00 26
+# biosentinel04 2023-05-07T10:30:00 2023-05-12T08:50:00 38
+# biosentinel05 2023-05-08T21:15:00 2023-05-13T20:20:00 83
+# biosentinel06 2023-07-16T04:45:00 2023-07-16T13:35:00 18
+# biosentinel07 2023-07-17T15:15:00 2023-07-19T12:15:00 620
+# biosentinel08 2023-07-28T06:30:00 2023-07-31T15:20:00 154
+# biosentinel09 2023-08-04T22:15:00 2023-08-07T08:45:00 18
+# biosentinel10 2023-08-06T03:00:00 2023-08-14T19:25:00 47
+# biosentinel11 2023-09-01T01:15:00 2023-09-01T16:10:00 25
+# biosentinel12 2023-12-15T22:45:00 2023-12-16T03:15:00 13
+# biosentinel13 2024-01-02T19:15:00 2024-01-07T11:35:00 20
+# biosentinel14 2024-01-28T06:45:00 2024-02-01T17:05:00 137
+# biosentinel15 2024-02-08T22:45:00 2024-02-12T02:25:00 187
+# biosentinel16 2024-02-09T16:15:00 2024-02-21T16:05:00 118
+# biosentinel17 2024-03-22T12:15:00 2024-03-26T06:50:00 956
+# biosentinel18 2024-05-10T05:15:00 2024-05-11T18:45:00 208
+# biosentinel19 2024-05-10T12:15:00 2024-05-13T03:10:00 116

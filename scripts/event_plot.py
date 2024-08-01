@@ -105,7 +105,7 @@ def main():
 
     if args.event_id is not None:
         title_prefix = '{} (>10 MeV max: {} pfu) / '.format(args.event_id, max_pfu)
-        file_name = 'event-{}-{}-{}-{}.mp4'.format(args.event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+        file_name = 'event-{}-{}pfu-{}-{}.mp4'.format(args.event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
     else:
         title_prefix = ''
         file_name = 'event-{}-{}.mp4'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
