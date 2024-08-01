@@ -310,6 +310,8 @@ class RadLab(Dataset):
                 dates.append(date)
                 values.append(value)
             date += datetime.timedelta(minutes=delta_minutes)
+        if len(dates) == 0:
+            raise ValueError('RadLab ({}) no data found between {} and {}'.format(self.instrument, date_start, date_end))
         values = torch.stack(values).flatten()
         return dates, values
 

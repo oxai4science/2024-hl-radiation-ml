@@ -101,14 +101,14 @@ def main():
     biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
     crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
 
-    file_name = 'event-plot-{}-{}.mp4'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+    file_name = 'event-plot-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
 
     if args.event_id is not None:
-        title_prefix = '{} (>10 MeV max: {} pfu) / '.format(args.event_id, max_pfu)
-        file_name = 'event-{}-{}pfu-{}-{}.mp4'.format(args.event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+        title_prefix = 'Event: {} (>10 MeV max: {} pfu) '.format(args.event_id, max_pfu)
+        file_name = 'event-{}-{}pfu-{}-{}'.format(args.event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
     else:
         title_prefix = ''
-        file_name = 'event-{}-{}.mp4'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+        file_name = 'event-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
 
     file_name = os.path.join(args.target_dir, file_name)
 
@@ -188,11 +188,19 @@ def main():
         plt.tight_layout()
         anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
         
-        writervideo = animation.FFMpegWriter(fps=args.fps)
-        anim.save(file_name, writer=writervideo)
-        plt.close(fig)
+        file_name_mp4 = file_name + '.mp4'
+        writer_mp4 = animation.FFMpegWriter(fps=args.fps)
+        anim.save(file_name_mp4, writer=writer_mp4)
 
-    print('\nFile saved: {}'.format(file_name))
+        # pbar.reset()
+        # file_name_gif = file_name + '.gif'
+        # writer_gif = animation.ImageMagickWriter(fps=args.fps)
+        # anim.save(file_name_gif, writer=writer_gif)
+        # plt.close(fig)
+
+    print('\nResults saved in:')
+    print('{}'.format(file_name_mp4))
+    # print('{}'.format(file_name_gif))
 
     print('\nEnd time: {}'.format(datetime.datetime.now()))
     print('Duration: {}'.format(datetime.datetime.now() - start_time))
