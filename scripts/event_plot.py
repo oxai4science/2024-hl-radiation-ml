@@ -23,8 +23,8 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--date_start', type=str, default='2023-08-05T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2023-08-06T23:00:00', help='End date')
+    parser.add_argument('--date_start', type=str, default='2023-07-28T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2023-07-29T23:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -96,7 +96,7 @@ def main():
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
     ax.grid(color='#f0f0f0', zorder=0)
-    myFmt = mdates.DateFormatter('%Y-%m-%d-%H-%M')
+    myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
     ims['crater'] = ax.axvline(date_start, color='red', linestyle='-')
     
