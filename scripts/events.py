@@ -58,7 +58,7 @@ for i in range(len(events_biosentinel)):
     event_id = 'biosentinel' + str(i+1).zfill(len(str(len(events_biosentinel))))
     events[event_id] = get_event_biosentinel(i)
 
-# event_id       date_start          date_end            max_pfu
+# event_id      date_start          date_end            max_pfu
 # biosentinel01 2023-02-25T06:15:00 2023-02-28T01:40:00 58
 # biosentinel02 2023-03-09T14:00:00 2023-03-26T09:25:00 22
 # biosentinel03 2023-04-23T18:15:00 2023-04-23T18:50:00 26
