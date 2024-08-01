@@ -230,8 +230,10 @@ def main():
             train_loader = DataLoader(dataset_sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
             valid_loader = DataLoader(dataset_sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
+            model_channels = len(dataset_sdo.channels)
             model_embedding_dim = 1024
-            model = SDOSequence(channels=len(dataset_sdo.channels), embedding_dim=model_embedding_dim, sequence_length=args.sequence_length)
+            model_sequence_length = args.sequence_length
+            model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
             model = model.to(device)
 
             num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -306,8 +308,9 @@ def main():
                     'optimizer_state_dict': optimizer.state_dict(),
                     'train_losses': train_losses,
                     'valid_losses': valid_losses,
-                    'sequence_length': args.sequence_length,
-                    'embedding_dim': model_embedding_dim
+                    'channels': model_channels,
+                    'embedding_dim': model_embedding_dim,
+                    'sequence_length': model_sequence_length
                 }
                 torch.save(checkpoint, model_file)
 
@@ -343,8 +346,11 @@ def main():
             print('\n*** Testing mode\n')
 
             checkpoint = torch.load(args.model_file)
-            # model = SDOSequence(channels=6, embedding_dim=checkpoint['embedding_dim'], sequence_length=checkpoint['sequence_length'])
-            model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
+            model_channels = checkpoint['channels']
+            model_embedding_dim = checkpoint['embedding_dim']
+            model_sequence_length = checkpoint['sequence_length']
+            model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
+            # model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
             model = model.to(device)
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()
