@@ -75,12 +75,6 @@ def main():
     data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
-    channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']
-
-    sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=args.date_start, date_end=args.date_end)
-    biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
-    crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
-
     if args.event_id is not None:
         print('\nEvent ID given, overriding date_start and date_end with event dates')
         if args.event_id not in events:
@@ -100,6 +94,12 @@ def main():
     print('Duration        : {:,} minutes'.format(duration_minutes))
     print('Delta minutes   : {}'.format(args.delta_minutes))
     print('Number of frames: {:,}'.format(num_frames))
+
+    channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']
+
+    sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=args.date_start, date_end=args.date_end)
+    biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
+    crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
 
     file_name = 'event-plot-{}-{}.mp4'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
 
