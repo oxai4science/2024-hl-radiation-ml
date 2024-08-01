@@ -14,7 +14,7 @@ import duckdb
 
 
 class SDOMLlite(Dataset):
-    def __init__(self, data_dir, channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'], date_start=None, date_end=None):
+    def __init__(self, data_dir, channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'], date_start=None, date_end=None, date_exclusions=None):
         self.data_dir = data_dir
         self.channels = channels
         print('\nSDOML-lite')
@@ -46,8 +46,19 @@ class SDOMLlite(Dataset):
         print('Delta      : {} minutes'.format(self.delta_minutes))
         print('Channels   : {}'.format(', '.join(self.channels)))
 
+        self.date_exclusions = date_exclusions
+        if self.date_exclusions is not None:
+            print('Date exclusions:')
+            date_exclusions_postfix = '_exclusions'
+            for exclusion_date_start, exclusion_date_end in self.date_exclusions:
+                print('  {} - {}'.format(exclusion_date_start, exclusion_date_end))
+                date_exclusions_postfix += '__{}_{}'.format(exclusion_date_start.isoformat(), exclusion_date_end.isoformat())
+        else:
+            date_exclusions_postfix = ''
+
         self.dates = []
-        dates_cache = os.path.join(self.data_dir, 'dates_index_{}_{}_{}'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat()))
+        dates_cache = 'dates_index_{}_{}_{}{}'.format('_'.join(self.channels), self.date_start.isoformat(), self.date_end.isoformat(), date_exclusions_postfix)
+        dates_cache = os.path.join(self.data_dir, dates_cache)
         if os.path.exists(dates_cache):
             print('Loading dates from cache: {}'.format(dates_cache))
             with open(dates_cache, 'rb') as f:
@@ -64,6 +75,11 @@ class SDOMLlite(Dataset):
                     for channel in self.channels:
                         postfix = channel+'.npy'
                         if postfix not in data:
+                            exists = False
+                            break
+                if self.date_exclusions is not None:
+                    for exclusion_date_start, exclusion_date_end in self.date_exclusions:
+                        if (date >= exclusion_date_start) and (date < exclusion_date_end):
                             exists = False
                             break
                 if exists:
@@ -118,6 +134,11 @@ class SDOMLlite(Dataset):
         if date not in self.dates_set:
             print('Date not found in SDOML-lite : {}'.format(date))
             return None
+        
+        if self.date_exclusions is not None:
+            for exclusion_date_start, exclusion_date_end in self.date_exclusions:
+                if (date >= exclusion_date_start) and (date < exclusion_date_end):
+                    raise RuntimeError('Should not happen')
 
         prefix = self.date_to_prefix(date)
         data = self.data[prefix]
@@ -133,7 +154,7 @@ class SDOMLlite(Dataset):
 
 # BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
 class RadLab(Dataset):
-    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5):
+    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
         print('\nRadLab')
         print('File                 : {}'.format(file_name))
         self.instrument = instrument
@@ -206,7 +227,15 @@ class RadLab(Dataset):
 
         # Filter out dates outside the range
         self.data = self.data[(self.data['datetime'] >=self.date_start) & (self.data['datetime'] <=self.date_end)]
-    
+
+        # Filter out dates within date_exclusions
+        self.date_exclusions = date_exclusions
+        if self.date_exclusions is not None:
+            print('Date exclusions:')
+            for exclusion_date_start, exclusion_date_end in self.date_exclusions:
+                print('  {} - {}'.format(exclusion_date_start, exclusion_date_end))
+                self.data = self.data[~self.data['datetime'].between(exclusion_date_start, exclusion_date_end)]
+
         # Get dates available (redo to make sure things match up)
         self.dates = [date.to_pydatetime() for date in self.data['datetime']]
         self.dates_set = set(self.dates)

@@ -177,7 +177,7 @@ def main():
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2022-12-01T00:00:00', help='End date')
+    parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
     parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
     parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
     parser.add_argument('--model_file', type=str, help='Model file')
@@ -209,15 +209,21 @@ def main():
         if args.mode == 'train':
             print('\n*** Training mode\n')
 
+            date_exclusions = []
+            if args.test_event_id is not None:
+                for event_id in args.test_event_id:
+                    if event_id not in EventCatalog:
+                        raise ValueError('Event ID not found in events: {}'.format(event_id))
+                    date_start, date_end, _ = EventCatalog[event_id]
+                    date_start = datetime.datetime.fromisoformat(date_start)
+                    date_end = datetime.datetime.fromisoformat(date_end)
+                    date_exclusions.append((date_start, date_end))
+
             # For training and validation
-            dataset_sdo = SDOMLlite(data_dir_sdo)
-            dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end)
+            dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
+            dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
-            # Testing with data seen during training
-            # Use the last 14 days in the training data
-            test_seen_date_start = (datetime.datetime.fromisoformat(args.date_end) - datetime.timedelta(days=14)).isoformat()
-            test_seen_date_end = args.date_end
 
             # Split sequences into train and validation
             valid_size = int(args.valid_proportion * len(dataset_sequences))
