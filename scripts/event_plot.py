@@ -52,8 +52,8 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--date_start', type=str, default='2022-12-01T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2022-12-01T12:00:00', help='End date')
+    parser.add_argument('--date_start', type=str, default='2022-12-14T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2022-12-16T00:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -94,7 +94,7 @@ def main():
 
     vmin = {}
     vmax = {}
-    sdo_sample, _ = sdo[date_start]
+    sdo_sample, _ = sdo[0]
     for i, c in enumerate(channels):
         if c == 'hmi_m':
             vmin[c], vmax[c] = -1500, 1500
