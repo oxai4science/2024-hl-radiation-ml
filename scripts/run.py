@@ -163,7 +163,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--target_dir', type=str, required=True, help='Directory to store results')
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
-    parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
+    parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel-v2', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
@@ -177,8 +177,9 @@ def main():
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2024-05-01T00:00:00', help='End date')
-    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel07', 'biosentinel01'], help='Test event IDs')
+    parser.add_argument('--date_end', type=str, default='2022-12-01T00:00:00', help='End date')
+    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
+    parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
     parser.add_argument('--model_file', type=str, help='Model file')
 
     args = parser.parse_args()
@@ -295,7 +296,7 @@ def main():
                 
 
                 # Save model
-                model_file = '{}/epoch_{:03d}_model.pth'.format(args.target_dir, epoch+1)
+                model_file = '{}/epoch-{:03d}-model.pth'.format(args.target_dir, epoch+1)
                 print('Saving model to {}'.format(model_file))
                 checkpoint = {
                     'model': 'SDOSequence',
@@ -311,7 +312,7 @@ def main():
                 torch.save(checkpoint, model_file)
 
                 # Plot losses
-                plot_file = '{}/epoch_{:03d}_loss.pdf'.format(args.target_dir, epoch+1)
+                plot_file = '{}/epoch-{:03d}-loss.pdf'.format(args.target_dir, epoch+1)
                 save_loss_plot(train_losses, valid_losses, plot_file)
 
                 if args.test_event_id is not None:
@@ -322,58 +323,21 @@ def main():
                         print('Event ID: {}'.format(event_id))
                         date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=args.sequence_length * args.delta_minutes)
                         date_end = datetime.datetime.fromisoformat(date_end)
-                        file_prefix = 'epoch_{:03d}_test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+                        file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
                         run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args)
 
-
-                # Test with unseen data
-                # print('*** Testing with unseen data')
-                # test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, args.test_date_start, args.test_date_end, data_dir_sdo, data_dir_radlab, args)
-
-                # test_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.csv'.format(args.target_dir, epoch+1)
-                # save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
-                # test_plot_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.pdf'.format(args.target_dir, epoch+1)
-                # save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized)
-
-                # test_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
-                # test_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
-
-                # test_file_unnormalized = '{}/epoch_{:03d}_test_unseen_unnormalized.csv'.format(args.target_dir, epoch+1)
-                # save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
-                # test_plot_file_unnormalized = '{}/epoch_{:03d}_test_unseen_unnormalized.pdf'.format(args.target_dir, epoch+1)
-                # save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized)
-
-
-                # # Test with seen data
-                # print('*** Testing with seen data')
-                # test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_dataset_biosentinel = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_radlab, args)
-
-                # test_seen_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.csv'.format(args.target_dir, epoch+1)
-                # save_test_file(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_file_normalized)
-                # test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.pdf'.format(args.target_dir, epoch+1)
-                # save_test_plot(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
-
-                # test_seen_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
-                # test_seen_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
-
-                # test_seen_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.csv'.format(args.target_dir, epoch+1)
-                # save_test_file(test_dates, test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_file_unnormalized)
-                # test_seen_plot_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.pdf'.format(args.target_dir, epoch+1)
-                # save_test_plot(test_dates, test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_plot_file_unnormalized)
-
-                # shutil.copyfile(model_file, '{}/latest_model.pth'.format(args.target_dir))
-                # shutil.copyfile(plot_file, '{}/latest_loss.pdf'.format(args.target_dir))
-
-                # shutil.copyfile(test_file_normalized, '{}/latest_test_unseen_normalized.csv'.format(args.target_dir))
-                # shutil.copyfile(test_plot_file_normalized, '{}/latest_test_unseen_normalized.pdf'.format(args.target_dir))
-                # shutil.copyfile(test_file_unnormalized, '{}/latest_test_unseen_unnormalized.csv'.format(args.target_dir))
-                # shutil.copyfile(test_plot_file_unnormalized, '{}/latest_test_unseen_unnormalized.pdf'.format(args.target_dir))
-
-                # shutil.copyfile(test_seen_file_normalized, '{}/latest_test_seen_normalized.csv'.format(args.target_dir))
-                # shutil.copyfile(test_seen_plot_file_normalized, '{}/latest_test_seen_normalized.pdf'.format(args.target_dir))
-                # shutil.copyfile(test_seen_file_unnormalized, '{}/latest_test_seen_unnormalized.csv'.format(args.target_dir))
-                # shutil.copyfile(test_seen_plot_file_unnormalized, '{}/latest_test_seen_unnormalized.pdf'.format(args.target_dir))
+                if args.test_seen_event_id is not None:
+                    for event_id in args.test_seen_event_id:
+                        if event_id not in EventCatalog:
+                            raise ValueError('Event ID not found in events: {}'.format(event_id))
+                        date_start, date_end, max_pfu = EventCatalog[event_id]
+                        print('Event ID: {}'.format(event_id))
+                        date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=args.sequence_length * args.delta_minutes)
+                        date_end = datetime.datetime.fromisoformat(date_end)
+                        file_prefix = 'epoch-{:03d}-test-seen-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+                        title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
+                        run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args)
 
         if args.mode == 'test':
             print('\n*** Testing mode\n')
