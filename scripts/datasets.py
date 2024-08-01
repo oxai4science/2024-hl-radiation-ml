@@ -24,13 +24,16 @@ class SDOMLlite(Dataset):
 
         self.date_start, self.date_end = self.find_date_range()
         if date_start is not None:
-            date_start = datetime.datetime.fromisoformat(date_start)
+            if isinstance(date_start, str):
+                date_start = datetime.datetime.fromisoformat(date_start)
+            
             if (date_start >= self.date_start) and (date_start < self.date_end):
                 self.date_start = date_start
             else:
                 print('Start date out of range, using default')
         if date_end is not None:
-            date_end = datetime.datetime.fromisoformat(date_end)
+            if isinstance(date_end, str):
+                date_end = datetime.datetime.fromisoformat(date_end)
             if (date_end > self.date_start) and (date_end <= self.date_end):
                 self.date_end = date_end
             else:
@@ -187,13 +190,15 @@ class RadLab(Dataset):
 
         # Adjust dates available
         if date_start is not None:
-            date_start = datetime.datetime.fromisoformat(date_start)
+            if isinstance(date_start, str):
+                date_start = datetime.datetime.fromisoformat(date_start)
             if (date_start >= self.date_start) and (date_start < self.date_end):
                 self.date_start = date_start
             else:
                 print('Start date out of range, using default')
         if date_end is not None:
-            date_end = datetime.datetime.fromisoformat(date_end)
+            if isinstance(date_end, str):
+                date_end = datetime.datetime.fromisoformat(date_end)
             if (date_end > self.date_start) and (date_end <= self.date_end):
                 self.date_end = date_end
             else:

@@ -17,6 +17,7 @@ import traceback
 
 from datasets import SDOMLlite, RadLab, Sequences
 from models import SDOSequence
+from events import events
 
 matplotlib.use('Agg')
 
@@ -53,10 +54,10 @@ def seed(seed=None):
 
 
 def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, args):
-    test_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
-    test_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
-    test_sequences = Sequences([test_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-    test_loader = DataLoader(test_sequences, batch_size=args.batch_size, shuffle=False)
+    test_dataset_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
+    test_dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
+    test_dataset_sequences = Sequences([test_dataset_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+    test_loader = DataLoader(test_dataset_sequences, batch_size=args.batch_size, shuffle=False)
     
     test_dates = []
     test_predictions = []
@@ -74,7 +75,7 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
                     test_dates.append(prediction_date)
                     prediction_value = output[i]
                     test_predictions.append(prediction_value)
-                    ground_truth_value, _ = test_biosentinel[prediction_date]
+                    ground_truth_value, _ = test_dataset_biosentinel[prediction_date]
                     if ground_truth_value is None:
                         ground_truth_value = torch.tensor(float('nan'))
                     else:
@@ -83,7 +84,7 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
                 pbar.update(1)
     test_predictions = torch.stack(test_predictions)
     test_ground_truths = torch.stack(test_ground_truths)
-    return test_dates, test_predictions, test_ground_truths
+    return test_dates, test_predictions, test_ground_truths, test_dataset_biosentinel
 
 
 def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
@@ -98,7 +99,7 @@ def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
             f.write('{},{},{}\n'.format(test_dates[i], test_predictions[i], test_ground_truths[i]))
 
 
-def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file):
+def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None):
     if torch.is_tensor(test_predictions):
         test_predictions = test_predictions.cpu().numpy()
     if torch.is_tensor(test_ground_truths):
@@ -117,7 +118,9 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
     plt.xticks(ha='right')
     plt.legend()
     plt.grid(color='#f0f0f0', zorder=0)
-    plt.tight_layout()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    if title is not None:
+        plt.title(title)
     plt.savefig(test_plot_file)    
 
 
@@ -157,6 +160,8 @@ def main():
     parser.add_argument('--date_end', type=str, default='2024-05-01T00:00:00', help='End date')
     parser.add_argument('--test_date_start', type=str, default='2024-05-01T00:00:00', help='Start date')
     parser.add_argument('--test_date_end', type=str, default='2024-05-14T19:30:00', help='End date')
+    parser.add_argument('--test_event_id', type=str, help='Test event ID')
+    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel02'], help='Test event IDs')
     parser.add_argument('--model_file', type=str, help='Model file')
 
     args = parser.parse_args()
@@ -291,15 +296,15 @@ def main():
 
                 # Test with unseen data
                 print('*** Testing with unseen data')
-                test_dates, test_predictions_normalized, test_ground_truths_normalized = test(model, args.test_date_start, args.test_date_end, data_dir_sdo, data_dir_radlab, args)
+                test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, args.test_date_start, args.test_date_end, data_dir_sdo, data_dir_radlab, args)
 
                 test_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.csv'.format(args.target_dir, epoch+1)
                 save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
                 test_plot_file_normalized = '{}/epoch_{:03d}_test_unseen_normalized.pdf'.format(args.target_dir, epoch+1)
                 save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized)
 
-                test_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_predictions_normalized)
-                test_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
+                test_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
+                test_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
 
                 test_file_unnormalized = '{}/epoch_{:03d}_test_unseen_unnormalized.csv'.format(args.target_dir, epoch+1)
                 save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
@@ -309,15 +314,15 @@ def main():
 
                 # Test with seen data
                 print('*** Testing with seen data')
-                test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_radlab, args)
+                test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_dataset_biosentinel = test(model, test_seen_date_start, test_seen_date_end, data_dir_sdo, data_dir_radlab, args)
 
                 test_seen_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.csv'.format(args.target_dir, epoch+1)
                 save_test_file(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_file_normalized)
                 test_seen_plot_file_normalized = '{}/epoch_{:03d}_test_seen_normalized.pdf'.format(args.target_dir, epoch+1)
                 save_test_plot(test_dates, test_seen_predictions_normalized, test_seen_ground_truths_normalized, test_seen_plot_file_normalized)
 
-                test_seen_predictions_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
-                test_seen_ground_truths_unnormalized = dataset_biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
+                test_seen_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_seen_predictions_normalized)
+                test_seen_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_seen_ground_truths_normalized)
 
                 test_seen_file_unnormalized = '{}/epoch_{:03d}_test_seen_unnormalized.csv'.format(args.target_dir, epoch+1)
                 save_test_file(test_dates, test_seen_predictions_unnormalized, test_seen_ground_truths_unnormalized, test_seen_file_unnormalized)
@@ -336,7 +341,52 @@ def main():
                 shutil.copyfile(test_seen_plot_file_normalized, '{}/latest_test_seen_normalized.pdf'.format(args.target_dir))
                 shutil.copyfile(test_seen_file_unnormalized, '{}/latest_test_seen_unnormalized.csv'.format(args.target_dir))
                 shutil.copyfile(test_seen_plot_file_unnormalized, '{}/latest_test_seen_unnormalized.pdf'.format(args.target_dir))
-            
+
+        if args.mode == 'test':
+            print('\n*** Testing mode\n')
+
+            model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
+            model = model.to(device)
+            checkpoint = torch.load(args.model_file)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            model.eval()
+
+            if args.test_event_id is not None:
+                print('\nEvent ID given, overriding date_start and date_end with event dates')
+                if args.test_event_id not in events:
+                    raise ValueError('Event ID not found in events: {}'.format(args.event_id))
+                args.date_start, args.date_end, max_pfu = events[args.test_event_id]
+                print('Event ID: {}'.format(args.test_event_id))
+                print('Date start: {}'.format(args.date_start))
+                print('Date end: {}'.format(args.date_end))
+
+            minutes_before_start = args.sequence_length * args.delta_minutes
+            date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
+            date_end = datetime.datetime.fromisoformat(args.date_end)
+
+            test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
+
+            if args.test_event_id is not None:
+                file_prefix = 'test-event-{}-{}pfu-{}-{}'.format(args.test_event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+                title = 'Event: {} (>10 MeV max: {} pfu)'.format(args.test_event_id, max_pfu)
+            else:
+                file_prefix = 'test-event-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
+                title = None
+
+            file_name = os.path.join(args.target_dir, file_prefix)
+            test_file_normalized = file_name + '_normalized.csv'
+            save_test_file(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_file_normalized)
+            test_plot_file_normalized = file_name + '_normalized.pdf'
+            save_test_plot(test_dates, test_predictions_normalized, test_ground_truths_normalized, test_plot_file_normalized, title=title)
+
+            test_predictions_unnormalized = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
+            test_ground_truths_unnormalized = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
+
+            test_file_unnormalized = file_name + '_unnormalized.csv'
+            save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
+            test_plot_file_unnormalized = file_name + '_unnormalized.pdf'
+            save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized, title=title)
+
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
         print('Duration: {}'.format(datetime.datetime.now() - start_time))
