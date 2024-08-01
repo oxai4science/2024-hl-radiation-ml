@@ -216,3 +216,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# Can use gifgen to convert mp4 to gif
+# https://github.com/lukechilds/gifgen
