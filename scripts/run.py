@@ -163,7 +163,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--target_dir', type=str, required=True, help='Directory to store results')
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
-    parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel-v2', help='SDOML-lite-biosentinel directory')
+    parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
