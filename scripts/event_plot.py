@@ -47,7 +47,7 @@ def unnormalize(data, channel):
 
 
 def main():
-    description = 'FDL-X 2024, Radiation Team, data statistics'
+    description = 'FDL-X 2024, Radiation Team, event plotting'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--target_dir', type=str, required=True, help='Directory to store results')
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
