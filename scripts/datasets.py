@@ -128,7 +128,7 @@ class SDOMLlite(Dataset):
         return channels
 
 
-# BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T19:30:00
+# BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
 class RadLab(Dataset):
     def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5):
         print('\nRadLab')
