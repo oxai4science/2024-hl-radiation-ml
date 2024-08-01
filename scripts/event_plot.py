@@ -8,12 +8,41 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.dates as mdates
+import sunpy.visualization.colormaps as sunpycm
 
 from tqdm import tqdm
 
 from datasets import SDOMLlite, RadLab
 
 matplotlib.use('Agg')
+
+sqrt_aia_cutoff = {}
+sqrt_aia_cutoff['aia_0131'] = np.sqrt(2652.1470)
+sqrt_aia_cutoff['aia_0171'] = np.sqrt(22816.1035)
+sqrt_aia_cutoff['aia_0193'] = np.sqrt(23919.7168)
+sqrt_aia_cutoff['aia_0211'] = np.sqrt(13458.3203)
+sqrt_aia_cutoff['aia_1600'] = np.sqrt(3399.5896)
+
+cms = {}
+cms['hmi_m'] = sunpycm.cmlist.get('hmimag')
+cms['aia_0131'] = sunpycm.cmlist.get('sdoaia131')
+cms['aia_0171'] = sunpycm.cmlist.get('sdoaia171')
+cms['aia_0193'] = sunpycm.cmlist.get('sdoaia193')
+cms['aia_0211'] = sunpycm.cmlist.get('sdoaia211')
+cms['aia_1600'] = sunpycm.cmlist.get('sdoaia1600')
+
+
+def unnormalize(data, channel):
+    if channel == 'hmi_m':
+        mask = data > 0.05
+        data = 2 * (data - 0.5)
+        data = data * 1500 
+        data = data * mask
+    else:
+        c = sqrt_aia_cutoff[channel]
+        data = data * c
+        data = data ** 2.
+    return data
 
 
 def main():
@@ -23,8 +52,8 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--date_start', type=str, default='2023-07-28T00:00:00', help='Start date')
-    parser.add_argument('--date_end', type=str, default='2023-07-29T23:00:00', help='End date')
+    parser.add_argument('--date_start', type=str, default='2022-12-01T00:00:00', help='Start date')
+    parser.add_argument('--date_end', type=str, default='2022-12-01T12:00:00', help='End date')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
@@ -45,13 +74,6 @@ def main():
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
     channels=['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600']
-    vis_lims = {}
-    vis_lims['hmi_m'] = 0., 1./1.5
-    vis_lims['aia_0131'] = 0., 0.68/15
-    vis_lims['aia_0171'] = 0., 1./2
-    vis_lims['aia_0193'] = 0., 0.58/4
-    vis_lims['aia_0211'] = 0., 1./2
-    vis_lims['aia_1600'] = 0., 0.8/3
 
     sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=args.date_start, date_end=args.date_end)
     biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
@@ -70,13 +92,25 @@ def main():
                                    ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
                                    ['crater', 'crater', 'crater', 'crater', 'crater', 'crater']], figsize=(20, 10), height_ratios=[2, 1, 1])
 
+    vmin = {}
+    vmax = {}
+    sdo_sample, _ = sdo[date_start]
+    for i, c in enumerate(channels):
+        if c == 'hmi_m':
+            vmin[c], vmax[c] = -1500, 1500
+        else:
+            vmin[c], vmax[c] = np.percentile(unnormalize(sdo_sample[i], c), (0.5, 98))
+
+
     ims = {}
     for c in channels:
+        cmap = cms[c]
+        # cmap = 'viridis'    
         ax = axs[c]
         ax.set_title('SDO {}'.format(c))
         ax.set_xticks([])
         ax.set_yticks([])
-        im = ax.imshow(np.zeros([512,512]), vmin=vis_lims[c][0], vmax=vis_lims[c][1], cmap='gray')
+        im = ax.imshow(np.zeros([512,512]), vmin=vmin[c], vmax=vmax[c], cmap=cmap)
         ims[c] = im
 
     ax = axs['biosentinel']
@@ -105,14 +139,17 @@ def main():
             date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
             pbar.set_description('Frame {}'.format(date))
             pbar.update(1)
-            sdo_data, _ = sdo[date]
-            if sdo_data is None:
-                return
-            for i, c in enumerate(channels):
-                data = sdo_data[i].cpu().numpy()
-                ims[c].set_data(data)
+
             ims['biosentinel'].set_xdata([date, date])
             ims['crater'].set_xdata([date, date])
+
+            sdo_data, _ = sdo[date]
+            for i, c in enumerate(channels):
+                if sdo_data is None:
+                    # ims[c].set_data(np.zeros([512,512]))
+                    pass
+                else:
+                    ims[c].set_data(unnormalize(sdo_data[i].cpu().numpy(), c))
 
         plt.tight_layout()
         anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
