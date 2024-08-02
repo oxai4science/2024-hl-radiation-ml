@@ -339,7 +339,7 @@ class RadLab(Dataset):
                 if omit_missing:
                     value_available = False
                 else:
-                    davalueta = torch.tensor(float('nan'))
+                    value = torch.tensor(float('nan'))
             if value_available:
                 dates.append(date)
                 values.append(value)
