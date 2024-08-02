@@ -361,6 +361,7 @@ def main():
             model.load_state_dict(checkpoint['model_state_dict'])
             model.eval()
 
+            args.sequence_length = model_sequence_length
             minutes_before_start = args.sequence_length * args.delta_minutes
 
             tests_to_run = []
