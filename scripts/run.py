@@ -55,7 +55,7 @@ def seed(seed=None):
 
 
 def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, args):
-    pre_window_minutes = args.sequence_length * args.delta_minutes
+    pre_window_minutes = (args.sequence_length - 1) * args.delta_minutes  # args.sequence_length - 1 because the first sequence's last date must be the same with the first date we want the prediction for
     test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
 
     test_dataset_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
