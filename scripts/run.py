@@ -70,16 +70,17 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
     with torch.no_grad():
         with tqdm(total=len(test_loader), desc='Testing') as pbar:
             for sdo, dates in test_loader:
-                print('new batch')
+                # print('new batch')
                 sdo = sdo.to(device)
                 input = sdo
                 output = model(input)
-                print('batch_size', sdo.shape)
-                print('dates')
-                print(dates)
+                # print('batch_size', sdo.shape)
+                # print('dates')
+                # print(dates)
 
                 for i in range(len(output)):
-                    prediction_date = dates[i][-1]
+                    # dates has seq_len entries each of which has size batch_size
+                    prediction_date = dates[-1][i]
                     test_dates.append(prediction_date)
                     prediction_value = output[i]
                     test_predictions.append(prediction_value)
