@@ -357,8 +357,11 @@ def main():
                 model_sequence_length = checkpoint['sequence_length']
                 model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
             else:
-                model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
-
+                model_channels=6
+                model_embedding_dim=1024
+                model_sequence_length=args.sequence_length
+            
+            model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
             # model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
             model = model.to(device)
             model.load_state_dict(checkpoint['model_state_dict'])
