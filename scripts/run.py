@@ -79,7 +79,7 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
                 # print(dates)
 
                 for i in range(len(output)):
-                    # dates has seq_len entries each of which has size batch_size
+                    # dates: seq_len x batch_size, has seq_len entries each of which has size batch_size
                     prediction_date = dates[-1][i]
                     test_dates.append(prediction_date)
                     prediction_value = output[i]
@@ -135,9 +135,9 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
 def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args):
     test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
 
-    print('test_dates')
-    for date in test_dates:
-        print(date)
+    # print('test_dates')
+    # for date in test_dates:
+    #     print(date)
 
     file_name = os.path.join(args.target_dir, file_prefix)
     test_file_normalized = file_name + '_normalized.csv'
