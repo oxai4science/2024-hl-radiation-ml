@@ -107,9 +107,7 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
         test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
     
-    fix, axs = plt.subplot_mosaic(['biosentinel'], figsize=(24, 6))
-
-    ax = axs['biosentinel']
+    fig, ax = plt.subplots(figsize=(24, 6))
     ax.set_title('Biosentinel BPD')
     ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
     ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
