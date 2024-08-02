@@ -107,12 +107,14 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
         test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
     
+    num_ticks = 20
     fig, ax = plt.subplots(figsize=(24, 6))
     ax.set_title('Biosentinel BPD')
     ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
     ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
     ax.set_ylabel('Absorbed dose rate')
     ax.grid(color='#f0f0f0', zorder=0)
+    ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
     ax.legend()
     if log_scale:
         ax.set_yscale('log')
