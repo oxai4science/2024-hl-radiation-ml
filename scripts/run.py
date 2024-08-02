@@ -374,7 +374,6 @@ def main():
             model.eval()
 
             args.sequence_length = model_sequence_length
-            minutes_before_start = args.sequence_length * args.delta_minutes
 
             tests_to_run = []
             if args.test_event_id is not None:
@@ -386,7 +385,6 @@ def main():
                     date_start, date_end, max_pfu = EventCatalog[event_id]
                     print('Event ID: {}'.format(event_id))
 
-                    # date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=minutes_before_start)
                     date_start = datetime.datetime.fromisoformat(date_start)
                     date_end = datetime.datetime.fromisoformat(date_end)
                     file_prefix = 'test-event-{}-{}pfu-{}-{}'.format(event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
@@ -396,7 +394,6 @@ def main():
             else:
                 print('\nEvent IDs not given, will use date_start and date_end arguments')
 
-                # date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
                 date_start = datetime.datetime.fromisoformat(args.date_start)
                 date_end = datetime.datetime.fromisoformat(args.date_end)
                 file_prefix = 'test-event-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
