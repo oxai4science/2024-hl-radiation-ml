@@ -406,7 +406,7 @@ class Sequences(Dataset):
     def find_sequences(self):
         sequences = []
         sequence_start = self.date_start
-        while sequence_start <= self.date_end - datetime.timedelta(minutes=self.sequence_length*self.delta_minutes):
+        while sequence_start <= self.date_end - datetime.timedelta(minutes=(self.sequence_length-1)*self.delta_minutes):
             # New sequence
             sequence = []
             sequence_available = True
