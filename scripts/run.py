@@ -107,7 +107,7 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
         test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
     
-    num_ticks = 20
+    num_ticks = 10
     fig, ax = plt.subplots(figsize=(24, 6))
     ax.set_title('Biosentinel BPD')
     ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
