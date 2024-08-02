@@ -113,7 +113,7 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
     # plt.xlabel('Date')
     plt.ylabel('Absorbed dose rate')
     # Limit number of xticks
-    plt.xticks(np.arange(0, len(test_predictions), step=len(test_predictions)//20))
+    plt.xticks(np.arange(0, len(test_predictions), step=max(1, len(test_predictions)//20)))
     # Rotate xticks
     plt.xticks(rotation=45)
     # Shift xticks so that the end of the text is at the tick
