@@ -131,7 +131,8 @@ def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data
     test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
 
     print('test_dates')
-    print(test_dates)
+    for date in test_dates:
+        print(date)
 
     file_name = os.path.join(args.target_dir, file_prefix)
     test_file_normalized = file_name + '_normalized.csv'
