@@ -100,26 +100,25 @@ def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
             f.write('{},{},{}\n'.format(test_dates[i], test_predictions[i], test_ground_truths[i]))
 
 
-def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None):
+def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
     if torch.is_tensor(test_predictions):
         test_predictions = test_predictions.cpu().numpy()
     if torch.is_tensor(test_ground_truths):
         test_ground_truths = test_ground_truths.cpu().numpy()
     print('Saving test plot to {}'.format(test_plot_file))
     
-    plt.figure(figsize=(24, 6))
-    plt.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
-    plt.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
-    # plt.xlabel('Date')
-    plt.ylabel('Absorbed dose rate')
-    # Limit number of xticks
-    plt.xticks(np.arange(0, len(test_predictions), step=max(1, len(test_predictions)//20)))
-    # Rotate xticks
-    plt.xticks(rotation=45)
-    # Shift xticks so that the end of the text is at the tick
-    plt.xticks(ha='right')
-    plt.legend()
-    plt.grid(color='#f0f0f0', zorder=0)
+    fix, axs = plt.subplot_mosaic(['biosentinel'], figsize=(24, 6))
+
+    ax = axs['biosentinel']
+    ax.set_title('Biosentinel BPD')
+    ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
+    ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
+    ax.set_ylabel('Absorbed dose rate')
+    ax.grid(color='#f0f0f0', zorder=0)
+    ax.legend()
+    if log_scale:
+        ax.set_yscale('log')
+    
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
     if title is not None:
         plt.title(title)
@@ -140,7 +139,7 @@ def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data
     test_file_unnormalized = file_name + '_unnormalized.csv'
     save_test_file(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_file_unnormalized)
     test_plot_file_unnormalized = file_name + '_unnormalized.pdf'
-    save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized, title=title)
+    save_test_plot(test_dates, test_predictions_unnormalized, test_ground_truths_unnormalized, test_plot_file_unnormalized, title=title, log_scale=True)
 
 
 
