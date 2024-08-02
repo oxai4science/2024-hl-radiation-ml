@@ -55,6 +55,9 @@ def seed(seed=None):
 
 
 def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, args):
+    pre_window_minutes = args.sequence_length * args.delta_minutes
+    test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
+
     test_dataset_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
     test_dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
     test_dataset_sequences = Sequences([test_dataset_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
@@ -126,6 +129,9 @@ def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_f
 
 def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args):
     test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
+
+    print('test_dates')
+    print(test_dates)
 
     file_name = os.path.join(args.target_dir, file_prefix)
     test_file_normalized = file_name + '_normalized.csv'
@@ -380,7 +386,8 @@ def main():
                     date_start, date_end, max_pfu = EventCatalog[event_id]
                     print('Event ID: {}'.format(event_id))
 
-                    date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=minutes_before_start)
+                    # date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=minutes_before_start)
+                    date_start = datetime.datetime.fromisoformat(date_start)
                     date_end = datetime.datetime.fromisoformat(date_end)
                     file_prefix = 'test-event-{}-{}pfu-{}-{}'.format(event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                     title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
@@ -389,7 +396,8 @@ def main():
             else:
                 print('\nEvent IDs not given, will use date_start and date_end arguments')
 
-                date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
+                # date_start = datetime.datetime.fromisoformat(args.date_start) - datetime.timedelta(minutes=minutes_before_start)
+                date_start = datetime.datetime.fromisoformat(args.date_start)
                 date_end = datetime.datetime.fromisoformat(args.date_end)
                 file_prefix = 'test-event-{}-{}'.format(date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                 title = None
