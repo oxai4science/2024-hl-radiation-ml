@@ -54,8 +54,8 @@ def main():
                 runs.append(('{}_normalized'.format(channel), SDOMLlite(data_dir_sdo, channels=[channel])))
         elif instrument == 'GOESXRS':
             runs = [ 
-                ('xrsb2_normalized', GOESXRS(data_dir_goes_xrs, normalize=True)),
-                ('xrsb2_unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False))
+                ('normalized', GOESXRS(data_dir_goes_xrs, normalize=True)),
+                ('unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False))
             ]
         else:
             runs = [ 
