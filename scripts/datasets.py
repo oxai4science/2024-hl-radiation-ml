@@ -434,6 +434,7 @@ class Sequences(Dataset):
         print('End date                : {}'.format(self.date_end))
         print('Delta                   : {} minutes'.format(self.delta_minutes))
         print('Sequence length         : {}'.format(self.sequence_length))
+        print('Sequence duration       : {} minutes'.format(self.delta_minutes*self.sequence_length))
 
         self.sequences = self.find_sequences()
         if len(self.sequences) == 0:

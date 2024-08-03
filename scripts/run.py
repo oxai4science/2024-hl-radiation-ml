@@ -54,14 +54,15 @@ def seed(seed=None):
     torch.manual_seed(seed)
 
 
-def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, args):
-    pre_window_minutes = (args.sequence_length - 1) * args.delta_minutes  # args.sequence_length - 1 because the first sequence's last date must be the same with the first date we want the prediction for
-    test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
+def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, data_dir_goes_xrs, args):
+    # pre_window_minutes = (args.sequence_length - 1) * args.delta_minutes  # args.sequence_length - 1 because the first sequence's last date must be the same with the first date we want the prediction for
+    # test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
 
-    test_dataset_sdo = SDOMLlite(data_dir_sdo, date_start=test_date_start, date_end=test_date_end)
+    test_steps = (test_date_end - test_date_start).total_seconds() / (args.delta_minutes * 60)
+
+    test_dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=test_date_start, date_end=test_date_end)
     test_dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
-    test_dataset_sequences = Sequences([test_dataset_sdo], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-    test_loader = DataLoader(test_dataset_sequences, batch_size=args.batch_size, shuffle=False)
+    test_dataset_sequences = Sequences([test_dataset_goes_xrs, test_dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=test_steps)
     
     test_dates = []
     test_predictions = []
@@ -69,7 +70,7 @@ def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, a
     device = next(model.parameters()).device
     with torch.no_grad():
         with tqdm(total=len(test_loader), desc='Testing') as pbar:
-            for sdo, dates in test_loader:
+            for goesxrs, biosentinel, dates in test_loader:
                 # print('new batch')
                 sdo = sdo.to(device)
                 input = sdo
@@ -225,8 +226,8 @@ def main():
 
             # For training and validation
             # dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
-            dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
+            dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             # dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
             dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
@@ -248,8 +249,13 @@ def main():
             # model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
             # model = model.to(device)
 
-            model = RadRecurrent(data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2)
+            model_data_dim = 2
+            model_lstm_dim = 1024
+            model_lstm_depth = 2
+            model_dropout = 0.2
+            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout)
             model = model.to(device)
+            model.train()
 
             num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
             print('\nNumber of parameters: {:,}\n'.format(num_params))
@@ -266,28 +272,17 @@ def main():
                 with tqdm(total=len(train_loader)) as pbar:
                     for i, (goesxrs, biosentinel, _) in enumerate(train_loader):
                         batch_size = goesxrs.shape[0]
-                        # print('batch_size', batch_size)
 
                         goesxrs = goesxrs.to(device)
                         biosentinel = biosentinel.to(device)
-
-                        # goesxrs: batch_size x seq_len x 1
-                        # biosentinel: batch_size x seq_len x 1
                         goesxrs = goesxrs.unsqueeze(-1)
                         biosentinel = biosentinel.unsqueeze(-1)
-                        # print('goesxrs', goesxrs.shape)
-                        # print('biosentinel', biosentinel.shape)
-
                         data = torch.cat([goesxrs, biosentinel], dim=2)
-                        # print('data', data.shape)
                         
                         input = data[:, :-1]
                         target = data[:, 1:]
-                        # print('input', input.shape)
-                        # print('target', target.shape)
-                        
+                       
                         model.init(batch_size)
-
                         optimizer.zero_grad()
                         output = model(input)
                         loss = torch.nn.functional.mse_loss(output, target)
@@ -307,13 +302,19 @@ def main():
                     valid_seqs = 0
                     model.eval()
                     with tqdm(total=len(valid_loader), desc='Validation') as pbar:
-                        for sdo, biosentinel, _ in valid_loader:
-                            sdo = sdo.to(device)
+                        for goesxrs, biosentinel, _ in valid_loader:
+                            batch_size = goesxrs.shape[0]
+
+                            goesxrs = goesxrs.to(device)
                             biosentinel = biosentinel.to(device)
+                            goesxrs = goesxrs.unsqueeze(-1)
+                            biosentinel = biosentinel.unsqueeze(-1)
+                            data = torch.cat([goesxrs, biosentinel], dim=2)
 
-                            input = sdo
-                            target = biosentinel[:, -1].unsqueeze(1)
+                            input = data[:, :-1]
+                            target = data[:, 1:]
 
+                            model.init(batch_size)
                             output = model(input)
                             loss = torch.nn.functional.mse_loss(output, target)
                             valid_loss += float(loss)
@@ -336,9 +337,10 @@ def main():
                     'optimizer_state_dict': optimizer.state_dict(),
                     'train_losses': train_losses,
                     'valid_losses': valid_losses,
-                    'channels': model_channels,
-                    'embedding_dim': model_embedding_dim,
-                    'sequence_length': model_sequence_length
+                    'model_data_dim': model_data_dim,
+                    'model_lstm_dim': model_lstm_dim,
+                    'model_lstm_depth': model_lstm_depth,
+                    'model_dropout': model_dropout
                 }
                 torch.save(checkpoint, model_file)
 
@@ -374,23 +376,16 @@ def main():
             print('\n*** Testing mode\n')
 
             checkpoint = torch.load(args.model_file)
-            if 'channels' in checkpoint:
-                model_channels = checkpoint['channels']
-                model_embedding_dim = checkpoint['embedding_dim']
-                model_sequence_length = checkpoint['sequence_length']
-                model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
-            else:
-                model_channels=6
-                model_embedding_dim=1024
-                model_sequence_length=args.sequence_length
+            model_data_dim = checkpoint['model_data_dim']
+            model_lstm_dim = checkpoint['model_lstm_dim']
+            model_lstm_depth = checkpoint['model_lstm_depth']
+            model_dropout = checkpoint['model_dropout']
             
-            model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
+            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout)
             # model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
             model = model.to(device)
             model.load_state_dict(checkpoint['model_state_dict'])
-            model.eval()
-
-            args.sequence_length = model_sequence_length
+            model.train() # set to train mode to use MC dropout
 
             tests_to_run = []
             if args.test_event_id is not None:
