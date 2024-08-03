@@ -23,6 +23,7 @@ def read_goes_xrs(file_name, column='xrsb2_flux'):
     values = df[column].to_numpy()
     return dates, values
 
+
 def read_goes_xrs_dataset(source_dir, column='xrsb2_flux'):
     files = sorted(glob(os.path.join(source_dir, '**', '*.nc'), recursive=True))
     dates = []
@@ -30,11 +31,11 @@ def read_goes_xrs_dataset(source_dir, column='xrsb2_flux'):
     for file in tqdm(files):
         d, v = read_goes_xrs(file, column=column)
         dates.extend(d)
-        
         values.append(v)
     values = np.concatenate(values)
     df = pd.DataFrame({'datetime': dates, column: values})
     return df
+
 
 def main():
     description = 'FDL-X 2024, Radiation Team, GOES XRS data processor'
