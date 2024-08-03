@@ -64,7 +64,7 @@ class RadRecurrent(nn.Module):
         self.lstm_dim = lstm_dim
         self.lstm_depth = lstm_depth
 
-        self.lstm = nn.LSTM(input_size=data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, dropout=dropout)
+        self.lstm = nn.LSTM(input_size=data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, dropout=dropout, batch_first=True)
         self.fc1 = nn.Linear(lstm_dim, data_dim)
         self.dropout = nn.Dropout(dropout)
         self.hidden = None
@@ -103,7 +103,7 @@ class RadContext(nn.Module):
         self.input_other_dim = input_other_dim
 
         self.sdo_embedding = SDOEmbedding(channels=input_sdo_channels, embedding_dim=input_sdo_dim)
-        self.lstm = nn.LSTM(input_size=input_sdo_dim+input_other_dim, hidden_size=lstm_dim, num_layers=lstm_depth)
+        self.lstm = nn.LSTM(input_size=input_sdo_dim+input_other_dim, hidden_size=lstm_dim, num_layers=lstm_depth, batch_first=True)
         self.fc1 = nn.Linear(lstm_dim, output_dim)
         self.hidden = None
 

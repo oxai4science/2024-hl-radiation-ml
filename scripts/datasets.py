@@ -164,7 +164,9 @@ class PandasDataset(Dataset):
         print('Normalize            : {}'.format(self.normalize))
         self.rewind_minutes = rewind_minutes
         print('Rewind minutes       : {:,}'.format(self.rewind_minutes))
-        
+
+        self.data[column] = self.data[column].astype(np.float32)
+
         self.data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.data = self.data.dropna()
 
@@ -210,6 +212,7 @@ class PandasDataset(Dataset):
         print('End date             : {}'.format(self.date_end))
 
         print('Rows after processing: {:,}'.format(len(self.data)))
+
 
 
     def normalize_data(self, data):
@@ -348,7 +351,6 @@ class RadLab(PandasDataset):
         data = data.sort_values(by='timestamp')
         data['datetime'] = pd.to_datetime(data['timestamp'], unit='s', origin='unix', utc=True).dt.tz_localize(None)
         data = data.drop(columns=['timestamp'])
-        data['absorbed_dose_rate'] = data['absorbed_dose_rate'].astype(np.float32)
 
         print('Rows                 : {:,}'.format(len(data)))
 

@@ -16,8 +16,8 @@ from tqdm import tqdm
 import shutil
 import traceback
 
-from datasets import SDOMLlite, RadLab, Sequences
-from models import SDOSequence
+from datasets import SDOMLlite, RadLab, GOESXRS, Sequences
+from models import RadRecurrent
 from events import EventCatalog
 
 matplotlib.use('Agg')
@@ -224,9 +224,11 @@ def main():
                     date_exclusions.append((date_start, date_end))
 
             # For training and validation
-            dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
+            # dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
             dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
-            dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+            dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
+            # dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+            dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
 
 
             # Split sequences into train and validation
@@ -240,10 +242,13 @@ def main():
             train_loader = DataLoader(dataset_sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
             valid_loader = DataLoader(dataset_sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-            model_channels = len(dataset_sdo.channels)
-            model_embedding_dim = 1024
-            model_sequence_length = args.sequence_length
-            model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
+            # model_channels = len(dataset_sdo.channels)
+            # model_embedding_dim = 1024
+            # model_sequence_length = args.sequence_length
+            # model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
+            # model = model.to(device)
+
+            model = RadRecurrent(data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2)
             model = model.to(device)
 
             num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -259,15 +264,30 @@ def main():
                 print('*** Training')
                 model.train()
                 with tqdm(total=len(train_loader)) as pbar:
-                    for i, (sdo, biosentinel, _) in enumerate(train_loader):
-                        # print('move data to device', flush=True)
-                        sdo = sdo.to(device)
+                    for i, (goesxrs, biosentinel, _) in enumerate(train_loader):
+                        batch_size = goesxrs.shape[0]
+                        # print('batch_size', batch_size)
+
+                        goesxrs = goesxrs.to(device)
                         biosentinel = biosentinel.to(device)
 
-                        input = sdo
-                        target = biosentinel[:, -1].unsqueeze(1)
+                        # goesxrs: batch_size x seq_len x 1
+                        # biosentinel: batch_size x seq_len x 1
+                        goesxrs = goesxrs.unsqueeze(-1)
+                        biosentinel = biosentinel.unsqueeze(-1)
+                        # print('goesxrs', goesxrs.shape)
+                        # print('biosentinel', biosentinel.shape)
 
-                        # print('run model', flush=True)
+                        data = torch.cat([goesxrs, biosentinel], dim=2)
+                        # print('data', data.shape)
+                        
+                        input = data[:, :-1]
+                        target = data[:, 1:]
+                        # print('input', input.shape)
+                        # print('target', target.shape)
+                        
+                        model.init(batch_size)
+
                         optimizer.zero_grad()
                         output = model(input)
                         loss = torch.nn.functional.mse_loss(output, target)
@@ -275,12 +295,10 @@ def main():
                         optimizer.step()
 
                         train_losses.append((iteration, float(loss)))
-                        # print('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
+
                         pbar.set_description('Epoch: {:,}/{:,} | Iter: {:,}/{:,} | Loss: {:.4f}'.format(epoch+1, args.epochs, i+1, len(train_loader), float(loss)))
                         pbar.update(1)
 
-                        # print('getting data', flush=True)
-                        # if iteration % args.valid_every == 0:
                         iteration += 1
 
                 print('*** Validation')
