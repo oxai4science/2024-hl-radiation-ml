@@ -12,7 +12,7 @@ import sunpy.visualization.colormaps as sunpycm
 
 from tqdm import tqdm
 
-from datasets import SDOMLlite, RadLab
+from datasets import SDOMLlite, RadLab, GOESXRS
 from events import EventCatalog
 
 matplotlib.use('Agg')
@@ -53,6 +53,7 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
+    parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--date_start', type=str, default='2023-02-25 06:15:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2023-02-28 01:40:00', help='End date')
     parser.add_argument('--sequence_length', type=int, default=20, help='Sequence length')
@@ -75,6 +76,7 @@ def main():
 
     data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+    data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
 
     minutes_before_start = args.sequence_length * args.delta_minutes
     
@@ -116,12 +118,14 @@ def main():
         sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=date_start, date_end=date_end)
         biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
         crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
+        goesxrs = GOESXRS(data_dir_goes_xrs, normalize=False)
 
         file_name = os.path.join(args.target_dir, file_name)
 
         fig, axs = plt.subplot_mosaic([['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'],
                                     ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
-                                    ['crater', 'crater', 'crater', 'crater', 'crater', 'crater']], figsize=(20, 10), height_ratios=[2, 1, 1])
+                                    ['crater', 'crater', 'crater', 'crater', 'crater', 'crater'],
+                                    ['goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs']], figsize=(20, 10), height_ratios=[2, 1, 1, 1])
 
         vmin = {}
         vmax = {}
@@ -145,7 +149,7 @@ def main():
 
         ax = axs['biosentinel']
         ax.set_title('Biosentinel BPD')
-        ax.set_ylabel('Absorbed dose rate [mGy/min]')
+        ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
         ax.yaxis.set_label_position("right")
         bio_dates, bio_values = biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         if bio_dates is not None:
@@ -155,15 +159,33 @@ def main():
         ax.grid(color='#f0f0f0', zorder=0)
         ax.set_yscale('log')
         # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-        ims['biosentinel'] = ax.axvline(date_start, color='red', linestyle='-')
+        ims['biosentinel'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
         ax = axs['crater']
         ax.set_title('CRaTER-D1D2')
-        ax.set_ylabel('Absorbed dose rate [mGy/h]')
+        ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
         ax.yaxis.set_label_position("right")
         crater_dates, crater_values = crater.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         if crater_dates is not None:
             ax.plot(crater_dates, crater_values, color='green', alpha=0.75)
+        # ax.tick_params(rotation=45)
+        ax.set_xticks(axs['biosentinel'].get_xticks())
+        ax.set_xlim(axs['biosentinel'].get_xlim()) 
+        ax.set_xticklabels([])
+        ax.grid(color='#f0f0f0', zorder=0)
+        ax.set_yscale('log')
+        # myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
+        # ax.xaxis.set_major_formatter(myFmt)
+        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
+        ims['crater'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+
+        ax = axs['goesxrs']
+        ax.set_title('GOES XRS')
+        ax.set_ylabel('X-ray flux\n[W/m^2]')
+        ax.yaxis.set_label_position("right")
+        goes_dates, goes_values = goesxrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        if goes_dates is not None:
+            ax.plot(goes_dates, goes_values, color='purple', alpha=0.75)
         # ax.tick_params(rotation=45)
         ax.set_xticks(axs['biosentinel'].get_xticks())
         ax.set_xlim(axs['biosentinel'].get_xlim())
@@ -172,7 +194,8 @@ def main():
         myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
         ax.xaxis.set_major_formatter(myFmt)
         # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-        ims['crater'] = ax.axvline(date_start, color='red', linestyle='-')
+        ims['goesxrs'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+
 
         title = plt.suptitle(title_prefix + str(date_start))
         
@@ -185,6 +208,7 @@ def main():
                 title.set_text(title_prefix + str(date))
                 ims['biosentinel'].set_xdata([date, date])
                 ims['crater'].set_xdata([date, date])
+                ims['goesxrs'].set_xdata([date, date])
 
                 sdo_data, _ = sdo[date]
                 for i, c in enumerate(channels):
@@ -194,7 +218,8 @@ def main():
                     else:
                         ims[c].set_data(unnormalize(sdo_data[i].cpu().numpy(), c))
 
-            plt.tight_layout()
+            # plt.tight_layout()
+            plt.tight_layout(rect=[0, 0, 1, 0.97])
             anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
             
             file_name_mp4 = file_name + '.mp4'
