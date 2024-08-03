@@ -357,6 +357,8 @@ class RadLab(PandasDataset):
             data = data[data['absorbed_dose_rate'] > 0]
         elif self.instrument == 'CRaTER-D1D2':
             data = data
+        elif self.instrument == 'MSL-RAD-Surface':
+            data = data
         else:
             raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
         
@@ -377,6 +379,13 @@ class RadLab(PandasDataset):
             data = data - mean_log_data
             data = data / std_log_data
             return data
+        elif self.instrument == 'MSL-RAD-Surface':
+            data = torch.log(data + 1e-8)
+            mean_log_data = 2.0309619903564453
+            std_log_data = 0.217209592461586
+            data = data - mean_log_data
+            data = data / std_log_data
+            return data
         else:
             raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
     
@@ -391,6 +400,13 @@ class RadLab(PandasDataset):
         elif self.instrument == 'CRaTER-D1D2':
             mean_log_data = 2.4395177364349365
             std_log_data = 0.752591073513031
+            data = data * std_log_data
+            data = data + mean_log_data
+            data = torch.exp(data) - 1e-8
+            return data
+        elif self.instrument == 'MSL-RAD-Surface':
+            mean_log_data = 2.0309619903564453
+            std_log_data = 0.217209592461586
             data = data * std_log_data
             data = data + mean_log_data
             data = torch.exp(data) - 1e-8
