@@ -51,19 +51,19 @@ def main():
             runs = []
             sdo = SDOMLlite(data_dir_sdo)
             for channel in sdo.channels:
-                runs.append(('{}_normalized'.format(channel), SDOMLlite(data_dir_sdo, channels=[channel])))
+                runs.append(('{}_normalized'.format(channel), SDOMLlite(data_dir_sdo, channels=[channel]), ''))
         elif instrument == 'GOESXRS':
             runs = [ 
-                ('normalized', GOESXRS(data_dir_goes_xrs, normalize=True)),
-                ('unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False))
+                ('normalized', GOESXRS(data_dir_goes_xrs, normalize=True), 'xrsb2_flux (normalized)'),
+                ('unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False), 'xrsb2_flux')
             ]
         else:
             runs = [ 
-                ('unnormalized', RadLab(data_dir_radlab, instrument=instrument, normalize=False)),  
-                ('normalized', RadLab(data_dir_radlab, instrument=instrument, normalize=True))
+                ('normalized', RadLab(data_dir_radlab, instrument=instrument, normalize=True), 'Absorbed dose rate (normalized)'),
+                ('unnormalized', RadLab(data_dir_radlab, instrument=instrument, normalize=False), 'Absorbed dose rate')
             ]
 
-        for postfix, dataset in runs:
+        for postfix, dataset, label in runs:
             print('\nProcessing {} {}'.format(instrument, postfix))
             if len(dataset) < args.num_samples:
                 indices = list(range(len(dataset)))
@@ -117,7 +117,7 @@ def main():
                 print('Saving time series: {}'.format(file_name_ts))
                 plt.figure(figsize=(24,6))
                 plt.plot(dates, values)
-                plt.ylabel('Absorbed dose rate')
+                plt.ylabel(label)
                 # Limit number of xticks
                 plt.xticks(np.arange(0, len(dates), step=len(dates)//40))
                 # Rotate xticks

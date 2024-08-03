@@ -165,9 +165,6 @@ class PandasDataset(Dataset):
         self.rewind_minutes = rewind_minutes
         print('Rewind minutes       : {:,}'.format(self.rewind_minutes))
         
-        data_rows_original = len(self.data)
-        print('Rows                 : {:,}'.format(data_rows_original))
-
         self.data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.data = self.data.dropna()
 
@@ -213,7 +210,6 @@ class PandasDataset(Dataset):
         print('End date             : {}'.format(self.date_end))
 
         print('Rows after processing: {:,}'.format(len(self.data)))
-        print('Rows dropped         : {:,}'.format(data_rows_original - len(self.data)))
 
 
     def normalize_data(self, data):
@@ -298,6 +294,9 @@ class GOESXRS(PandasDataset):
         data = pd.read_csv(file_name)
         data['datetime'] = pd.to_datetime(data['datetime'])
         data = data.sort_values(by='datetime')
+        print('Rows                 : {:,}'.format(len(data)))
+
+        data = data[data['xrsb2_flux'] > 3e-8]
 
         super().__init__('GOES XRS', data, 'xrsb2_flux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
 
@@ -350,6 +349,8 @@ class RadLab(PandasDataset):
         data['datetime'] = pd.to_datetime(data['timestamp'], unit='s', origin='unix', utc=True).dt.tz_localize(None)
         data = data.drop(columns=['timestamp'])
         data['absorbed_dose_rate'] = data['absorbed_dose_rate'].astype(np.float32)
+
+        print('Rows                 : {:,}'.format(len(data)))
 
         if self.instrument == 'BPD':
             # remove all rows with 0 absorbed_dose_rate
