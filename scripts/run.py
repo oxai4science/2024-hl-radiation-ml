@@ -54,97 +54,99 @@ def seed(seed=None):
     torch.manual_seed(seed)
 
 
-def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, data_dir_goes_xrs, args):
-    # pre_window_minutes = (args.sequence_length - 1) * args.delta_minutes  # args.sequence_length - 1 because the first sequence's last date must be the same with the first date we want the prediction for
-    # test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
+# def test(model, test_date_start, test_date_end, data_dir_sdo, data_dir_radlab, data_dir_goes_xrs, args):
+#     # pre_window_minutes = (args.sequence_length - 1) * args.delta_minutes  # args.sequence_length - 1 because the first sequence's last date must be the same with the first date we want the prediction for
+#     # test_date_start = test_date_start - datetime.timedelta(minutes=pre_window_minutes)
 
-    test_steps = (test_date_end - test_date_start).total_seconds() / (args.delta_minutes * 60)
+#     test_steps = (test_date_end - test_date_start).total_seconds() / (args.delta_minutes * 60)
 
-    test_dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=test_date_start, date_end=test_date_end)
-    test_dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
-    test_dataset_sequences = Sequences([test_dataset_goes_xrs, test_dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=test_steps)
+#     test_dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=test_date_start, date_end=test_date_end)
+#     test_dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=test_date_start, date_end=test_date_end)
+#     test_dataset_sequences = Sequences([test_dataset_goes_xrs, test_dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=test_steps)
+
+#     test_sequence
     
-    test_dates = []
-    test_predictions = []
-    test_ground_truths = []
-    device = next(model.parameters()).device
-    with torch.no_grad():
-        with tqdm(total=len(test_loader), desc='Testing') as pbar:
-            for goesxrs, biosentinel, dates in test_loader:
-                # print('new batch')
-                sdo = sdo.to(device)
-                input = sdo
-                output = model(input)
-                # print('batch_size', sdo.shape)
-                # print('dates')
-                # print(dates)
+#     test_dates = []
+#     test_predictions = []
+#     test_ground_truths = []
+#     device = next(model.parameters()).device
+#     with torch.no_grad():
+#         with tqdm(total=len(test_loader), desc='Testing') as pbar:
+#             for goesxrs, biosentinel, dates in test_loader:
+#                 # print('new batch')
+#                 sdo = sdo.to(device)
+#                 input = sdo
+#                 output = model(input)
+#                 # print('batch_size', sdo.shape)
+#                 # print('dates')
+#                 # print(dates)
 
-                for i in range(len(output)):
-                    # dates: seq_len x batch_size, has seq_len entries each of which has size batch_size
-                    prediction_date = dates[-1][i]
-                    test_dates.append(prediction_date)
-                    prediction_value = output[i]
-                    test_predictions.append(prediction_value)
-                    ground_truth_value, _ = test_dataset_biosentinel[prediction_date]
-                    if ground_truth_value is None:
-                        ground_truth_value = torch.tensor(float('nan'))
-                    else:
-                        ground_truth_value = ground_truth_value
-                    test_ground_truths.append(ground_truth_value)
-                pbar.update(1)
-    test_predictions = torch.stack(test_predictions)
-    test_ground_truths = torch.stack(test_ground_truths)
-    return test_dates, test_predictions, test_ground_truths, test_dataset_biosentinel
-
-
-def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
-    if torch.is_tensor(test_predictions):
-        test_predictions = test_predictions.cpu().numpy()
-    if torch.is_tensor(test_ground_truths):
-        test_ground_truths = test_ground_truths.cpu().numpy()
-    print('\nSaving test results to {}'.format(test_file))
-    with open(test_file, 'w') as f:
-        f.write('date,prediction,ground_truth\n')
-        for i in range(len(test_predictions)):
-            f.write('{},{},{}\n'.format(test_dates[i], test_predictions[i], test_ground_truths[i]))
+#                 for i in range(len(output)):
+#                     # dates: seq_len x batch_size, has seq_len entries each of which has size batch_size
+#                     prediction_date = dates[-1][i]
+#                     test_dates.append(prediction_date)
+#                     prediction_value = output[i]
+#                     test_predictions.append(prediction_value)
+#                     ground_truth_value, _ = test_dataset_biosentinel[prediction_date]
+#                     if ground_truth_value is None:
+#                         ground_truth_value = torch.tensor(float('nan'))
+#                     else:
+#                         ground_truth_value = ground_truth_value
+#                     test_ground_truths.append(ground_truth_value)
+#                 pbar.update(1)
+#     test_predictions = torch.stack(test_predictions)
+#     test_ground_truths = torch.stack(test_ground_truths)
+#     return test_dates, test_predictions, test_ground_truths, test_dataset_biosentinel
 
 
-def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
-    if torch.is_tensor(test_predictions):
-        test_predictions = test_predictions.cpu().numpy()
-    if torch.is_tensor(test_ground_truths):
-        test_ground_truths = test_ground_truths.cpu().numpy()
-    print('Saving test plot to {}'.format(test_plot_file))
+# def save_test_file(test_dates, test_predictions, test_ground_truths, test_file):
+#     if torch.is_tensor(test_predictions):
+#         test_predictions = test_predictions.cpu().numpy()
+#     if torch.is_tensor(test_ground_truths):
+#         test_ground_truths = test_ground_truths.cpu().numpy()
+#     print('\nSaving test results to {}'.format(test_file))
+#     with open(test_file, 'w') as f:
+#         f.write('date,prediction,ground_truth\n')
+#         for i in range(len(test_predictions)):
+#             f.write('{},{},{}\n'.format(test_dates[i], test_predictions[i], test_ground_truths[i]))
+
+
+# def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
+#     if torch.is_tensor(test_predictions):
+#         test_predictions = test_predictions.cpu().numpy()
+#     if torch.is_tensor(test_ground_truths):
+#         test_ground_truths = test_ground_truths.cpu().numpy()
+#     print('Saving test plot to {}'.format(test_plot_file))
     
-    num_ticks = 10
-    fig, ax = plt.subplots(figsize=(24, 6))
-    ax.set_title('Biosentinel BPD')
-    ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
-    ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
-    ax.set_ylabel('Absorbed dose rate')
-    ax.grid(color='#f0f0f0', zorder=0)
-    ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-    ax.legend()
-    if log_scale:
-        ax.set_yscale('log')
+#     num_ticks = 10
+#     fig, ax = plt.subplots(figsize=(24, 6))
+#     ax.set_title('Biosentinel BPD')
+#     ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
+#     ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
+#     ax.set_ylabel('Absorbed dose rate')
+#     ax.grid(color='#f0f0f0', zorder=0)
+#     ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
+#     ax.legend()
+#     if log_scale:
+#         ax.set_yscale('log')
     
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    if title is not None:
-        plt.title(title)
-    plt.savefig(test_plot_file)
+#     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+#     if title is not None:
+#         plt.title(title)
+#     plt.savefig(test_plot_file)
 
 
-def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args):
-    test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
+# def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args):
+#     test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
 
-    test_predictions = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
-    test_ground_truths = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
+#     test_predictions = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
+#     test_ground_truths = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
 
-    file_name = os.path.join(args.target_dir, file_prefix)
-    test_file = file_name + '.csv'
-    save_test_file(test_dates, test_predictions, test_ground_truths, test_file)
-    test_plot_file = file_name + '.pdf'
-    save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=title, log_scale=True)
+#     file_name = os.path.join(args.target_dir, file_prefix)
+#     test_file = file_name + '.csv'
+#     save_test_file(test_dates, test_predictions, test_ground_truths, test_file)
+#     test_plot_file = file_name + '.pdf'
+#     save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=title, log_scale=True)
 
 
 def save_loss_plot(train_losses, valid_losses, plot_file):
