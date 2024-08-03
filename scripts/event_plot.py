@@ -163,7 +163,7 @@ def main():
 
         ax = axs['crater']
         ax.set_title('CRaTER-D1D2')
-        ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
+        ax.set_ylabel('Absorbed dose rate\n[mGy/h]')
         ax.yaxis.set_label_position("right")
         crater_dates, crater_values = crater.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         if crater_dates is not None:
