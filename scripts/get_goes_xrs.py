@@ -8,16 +8,6 @@ import urllib.request
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
-# BioSentinel dates
-# From: 2022-11-01T00:01:00 
-# To:   2024-05-14T19:44:00
-
-
-def date_to_filename(date, wavelength):
-    # wavelength is an integer that can be 94, 131, 171, 193, 211, 304, 335, 1600, 1700
-    # zero-pad wavelength to 4 digits
-    return 'AIA{:%Y%m%d_%H%M}_{:04d}.fits'.format(date, wavelength)
-
 
 def process(file_names):
     remote_file_name, local_file_name = file_names
