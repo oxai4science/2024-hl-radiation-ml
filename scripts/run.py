@@ -167,6 +167,7 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
+    parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
@@ -206,6 +207,7 @@ def main():
 
         data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
         data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+        data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
 
         sys.stdout.flush()
         if args.mode == 'train':

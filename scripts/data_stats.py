@@ -8,7 +8,7 @@ import torch
 import matplotlib
 import matplotlib.pyplot as plt
 
-from datasets import RadLab, SDOMLlite
+from datasets import RadLab, SDOMLlite, GOESXRS
 
 
 matplotlib.use('Agg')
@@ -20,8 +20,9 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
+    parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to use')
-    parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'BPD', 'CRaTER-D1D2'], help='Instruments')
+    parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'BPD', 'CRaTER-D1D2'], help='Instruments')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     args = parser.parse_args()
@@ -42,6 +43,7 @@ def main():
 
     data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+    data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
 
 
     for instrument in args.instruments:
@@ -50,6 +52,11 @@ def main():
             sdo = SDOMLlite(data_dir_sdo)
             for channel in sdo.channels:
                 runs.append(('{}_normalized'.format(channel), SDOMLlite(data_dir_sdo, channels=[channel])))
+        elif instrument == 'GOESXRS':
+            runs = [ 
+                ('xrsb2_normalized', GOESXRS(data_dir_goes_xrs, normalize=True)),
+                ('xrsb2_unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False))
+            ]
         else:
             runs = [ 
                 ('unnormalized', RadLab(data_dir_radlab, instrument=instrument, normalize=False)),  

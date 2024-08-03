@@ -152,57 +152,25 @@ class SDOMLlite(Dataset):
         return channels
 
 
-# BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
-class RadLab(Dataset):
-    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
-        print('\nRadLab')
-        print('File                 : {}'.format(file_name))
-        self.instrument = instrument
-        dm = {}
-        dm['Lidal'] = 5
-        dm['MSL-RAD-Surface'] = 17
-        dm['ALTEA-Survey'] = 1
-        dm['CRaTER-D1D2'] = 60
-        dm['BPD'] = 1
-        if self.instrument in dm:
-            self.delta_minutes = dm[self.instrument]
-        else:
-            raise RuntimeError('Unsupported instrument: {}'.format(instrument))
-        
-        # table names: app_metadata, coordinates, instruments, readings, trajectories
-        # readings table
-        # columns and types: timestamp (double), instrument_id (varchar), direction (varchar), absorbed_dose_rate (double), dose_equivalent_rate (double),flux (double)
-        # distinct values in instrument_id: ALTEA-Survey, MSL-RAD-Surface, DosTel2, RAD-NOD3A5-pre, Liulin-MO-AB-Cruise, Liulin-MO-CD-Circular, TEPC-SMP330-pre, REM-LAB1O3-pre, REM-COL1A2-pre, RAD-NOD2P3-pre, Liulin-MO-AB-Circular, BPD, REM-NOD1SSC22-pre, TEPC-SMP327-pre, Liulin-5-D2, REM-CUPSSC17-pre, RAD-JPM1D5-pre, RAD-COL1A2-pre, Liulin-MO-CD-Elliptic, Liulin-MO-AB-Elliptic, IV-TEPC-NOD2DCQ-pre, CRaTER-D1D2, RAD-LAB1O3-pre, LND, DosTel1, REM-JPM1FD4-pre, IV-TEPC-NOD3FD3-pre, IV-TEPC-SMP328-pre, IV-TEPC-COL1A2-pre, Liulin-5-D1, Liulin-5-D3, REM-Lid, REM-NOD3SSC24-pre, REM-LABSSC8-pre, Liulin-MO-CD-Cruise, IV-TEPC-NOD2PD3-pre, Lidal, IV-TEPC-NOD2PCQ-pr
-        con = duckdb.connect(file_name, read_only=True)
-        instruments_available = list(con.execute('SELECT DISTINCT instrument_id FROM readings').fetchdf().to_numpy().reshape(-1))
-        print('Instruments available: {}'.format(', '.join(instruments_available)))
-        print('Instrument selected  : {}'.format(self.instrument))
+class PandasDataset(Dataset):
+    def __init__(self, name, data_frame, column, delta_minutes, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+        self.name = name
+        self.data = data_frame
+        self.column = column
+        self.delta_minutes = delta_minutes
+
         print('Delta minutes        : {:,}'.format(self.delta_minutes))
         self.normalize = normalize
         print('Normalize            : {}'.format(self.normalize))
         self.rewind_minutes = rewind_minutes
         print('Rewind minutes       : {:,}'.format(self.rewind_minutes))
         
-        self.data = con.execute('SELECT timestamp, instrument_id, absorbed_dose_rate FROM readings where instrument_id=\'{}\''.format(instrument)).fetchdf()
-        self.data = self.data.sort_values(by='timestamp')
-        self.data['datetime'] = pd.to_datetime(self.data['timestamp'], unit='s', origin='unix', utc=True).dt.tz_localize(None)
-        self.data = self.data.drop(columns=['timestamp'])
-        self.data['absorbed_dose_rate'] = self.data['absorbed_dose_rate'].astype(np.float32)
-
         data_rows_original = len(self.data)
         print('Rows                 : {:,}'.format(data_rows_original))
 
         self.data.replace([np.inf, -np.inf], np.nan, inplace=True)
         self.data = self.data.dropna()
 
-        if self.instrument == 'BPD':
-            # remove all rows with 0 absorbed_dose_rate
-            self.data = self.data[self.data['absorbed_dose_rate'] > 0]
-        elif self.instrument == 'CRaTER-D1D2':
-            self.data = self.data
-        else:
-            raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
-        
         # Get dates available
         self.dates = [date.to_pydatetime() for date in self.data['datetime']]
         self.dates_set = set(self.dates)
@@ -249,6 +217,151 @@ class RadLab(Dataset):
 
 
     def normalize_data(self, data):
+        raise NotImplementedError('normalize_data not implemented')
+    
+    def unnormalize_data(self, data):
+        raise NotImplementedError('unnormalize_data not implemented')
+            
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, index):
+        if isinstance(index, datetime.datetime):
+            date = index
+        elif isinstance(index, str):
+            date = datetime.datetime.fromisoformat(index)
+        elif isinstance(index, int):
+            date = self.data.iloc[index]['datetime']
+        else:
+            raise ValueError('Expecting index to be int, datetime.datetime, or str (in the format of 2022-11-01T00:01:00)')
+        data = self.get_data(date)
+        return data, date.isoformat()            
+
+    def get_data(self, date):
+        # if date < self.date_start or date > self.date_end:
+        #     raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
+
+        if date not in self.dates_set:
+            print('{} date not found: {}'.format(self.name, date))
+            # find the most recent date available before date, in pandas dataframe self.data
+            dates_available = self.data[self.data['datetime'] < date]
+            if len(dates_available) > 0:
+                date_previous = dates_available.iloc[-1]['datetime']
+                if date - date_previous < datetime.timedelta(minutes=self.rewind_minutes):
+                    print('{} rewinding to  : {}'.format(self.name, date_previous))
+                    data = self.data[self.data['datetime'] == date_previous][self.column]
+                else:
+                    return None
+            else:
+                return None
+        else:
+            data = self.data[self.data['datetime'] == date][self.column]
+            if len(data) == 0:
+                raise RuntimeError('Should not happen')
+        data = torch.tensor(data.values[0])
+        if self.normalize:
+            data = self.normalize_data(data)
+
+        return data
+
+    def get_series(self, date_start, date_end, delta_minutes=None, omit_missing=True):
+        if delta_minutes is None:
+            delta_minutes = self.delta_minutes
+        dates = []
+        values = []
+        date = date_start
+        while date < date_end:
+            value = self.get_data(date)
+            value_available = True
+            if value is None:
+                if omit_missing:
+                    value_available = False
+                else:
+                    value = torch.tensor(float('nan'))
+            if value_available:
+                dates.append(date)
+                values.append(value)
+            date += datetime.timedelta(minutes=delta_minutes)
+        if len(dates) == 0:
+            # raise ValueError('{} no data found between {} and {}'.format(self.name, self.instrument, date_start, date_end))
+            return None, None
+        values = torch.stack(values).flatten()
+        return dates, values
+
+
+class GOESXRS(PandasDataset):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+        print('\nGOES XRS')
+        print('File                 : {}'.format(file_name))
+        delta_minutes = 1
+
+        data = pd.read_csv(file_name)
+        data['datetime'] = pd.to_datetime(data['datetime'])
+        data = data.sort_values(by='datetime')
+
+        super().__init__('GOES XRS', data, 'xrsb2_flux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+
+    def normalize_data(self, data):
+        data = torch.log(data + 1e-8)
+        mean_log_data = -15.498870138883078
+        std_log_data = 1.73287805537894
+        data = data - mean_log_data
+        data = data / std_log_data
+        return data
+    
+    def unnormalize_data(self, data):
+        mean_log_data = -15.498870138883078
+        std_log_data = 1.73287805537894
+        data = data * std_log_data
+        data = data + mean_log_data
+        data = torch.exp(data) - 1e-8
+        return data
+
+
+# BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
+class RadLab(PandasDataset):
+    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+        self.instrument = instrument
+        name = 'RadLab ({})'.format(self.instrument)
+        print('\n{}'.format(name))
+        print('File                 : {}'.format(file_name))
+        dm = {}
+        dm['Lidal'] = 5
+        dm['MSL-RAD-Surface'] = 17
+        dm['ALTEA-Survey'] = 1
+        dm['CRaTER-D1D2'] = 60
+        dm['BPD'] = 1
+        if self.instrument in dm:
+            delta_minutes = dm[self.instrument]
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(instrument))
+        
+        # table names: app_metadata, coordinates, instruments, readings, trajectories
+        # readings table
+        # columns and types: timestamp (double), instrument_id (varchar), direction (varchar), absorbed_dose_rate (double), dose_equivalent_rate (double),flux (double)
+        # distinct values in instrument_id: ALTEA-Survey, MSL-RAD-Surface, DosTel2, RAD-NOD3A5-pre, Liulin-MO-AB-Cruise, Liulin-MO-CD-Circular, TEPC-SMP330-pre, REM-LAB1O3-pre, REM-COL1A2-pre, RAD-NOD2P3-pre, Liulin-MO-AB-Circular, BPD, REM-NOD1SSC22-pre, TEPC-SMP327-pre, Liulin-5-D2, REM-CUPSSC17-pre, RAD-JPM1D5-pre, RAD-COL1A2-pre, Liulin-MO-CD-Elliptic, Liulin-MO-AB-Elliptic, IV-TEPC-NOD2DCQ-pre, CRaTER-D1D2, RAD-LAB1O3-pre, LND, DosTel1, REM-JPM1FD4-pre, IV-TEPC-NOD3FD3-pre, IV-TEPC-SMP328-pre, IV-TEPC-COL1A2-pre, Liulin-5-D1, Liulin-5-D3, REM-Lid, REM-NOD3SSC24-pre, REM-LABSSC8-pre, Liulin-MO-CD-Cruise, IV-TEPC-NOD2PD3-pre, Lidal, IV-TEPC-NOD2PCQ-pr
+        con = duckdb.connect(file_name, read_only=True)
+        instruments_available = list(con.execute('SELECT DISTINCT instrument_id FROM readings').fetchdf().to_numpy().reshape(-1))
+        print('Instruments available: {}'.format(', '.join(instruments_available)))
+        print('Instrument selected  : {}'.format(self.instrument))
+        
+        data = con.execute('SELECT timestamp, instrument_id, absorbed_dose_rate FROM readings where instrument_id=\'{}\''.format(instrument)).fetchdf()
+        data = data.sort_values(by='timestamp')
+        data['datetime'] = pd.to_datetime(data['timestamp'], unit='s', origin='unix', utc=True).dt.tz_localize(None)
+        data = data.drop(columns=['timestamp'])
+        data['absorbed_dose_rate'] = data['absorbed_dose_rate'].astype(np.float32)
+
+        if self.instrument == 'BPD':
+            # remove all rows with 0 absorbed_dose_rate
+            data = data[data['absorbed_dose_rate'] > 0]
+        elif self.instrument == 'CRaTER-D1D2':
+            data = data
+        else:
+            raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
+        
+        super().__init__(name, data, 'absorbed_dose_rate', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+
+    def normalize_data(self, data):
         if self.instrument == 'BPD':
             data = torch.log(data + 1e-8)
             mean_log_data = -1.8559070825576782
@@ -283,72 +396,6 @@ class RadLab(Dataset):
             return data
         else:
             raise RuntimeError('Unsupported instrument: {}'.format(self.instrument))
-            
-    def __len__(self):
-        return len(self.data)
-    
-    def __getitem__(self, index):
-        if isinstance(index, datetime.datetime):
-            date = index
-        elif isinstance(index, str):
-            date = datetime.datetime.fromisoformat(index)
-        elif isinstance(index, int):
-            date = self.data.iloc[index]['datetime']
-        else:
-            raise ValueError('Expecting index to be int, datetime.datetime, or str (in the format of 2022-11-01T00:01:00)')
-        data = self.get_data(date)
-        return data, date.isoformat()            
-
-    def get_data(self, date):
-        # if date < self.date_start or date > self.date_end:
-        #     raise ValueError('Date ({}) out of range for RadLab ({}; {} - {})'.format(date, self.instrument, self.date_start, self.date_end))
-
-        if date not in self.dates_set:
-            print('RadLab ({}) date not found: {}'.format(self.instrument, date))
-            # find the most recent date available before date, in pandas dataframe self.data
-            dates_available = self.data[self.data['datetime'] < date]
-            if len(dates_available) > 0:
-                date_previous = dates_available.iloc[-1]['datetime']
-                if date - date_previous < datetime.timedelta(minutes=self.rewind_minutes):
-                    print('RadLab ({}) rewinding to  : {}'.format(self.instrument, date_previous))
-                    data = self.data[self.data['datetime'] == date_previous]['absorbed_dose_rate']
-                else:
-                    return None
-            else:
-                return None
-        else:
-            data = self.data[self.data['datetime'] == date]['absorbed_dose_rate']
-            if len(data) == 0:
-                raise RuntimeError('Should not happen')
-        data = torch.tensor(data.values[0])
-        if self.normalize:
-            data = self.normalize_data(data)
-
-        return data
-
-    def get_series(self, date_start, date_end, delta_minutes=None, omit_missing=True):
-        if delta_minutes is None:
-            delta_minutes = self.delta_minutes
-        dates = []
-        values = []
-        date = date_start
-        while date < date_end:
-            value = self.get_data(date)
-            value_available = True
-            if value is None:
-                if omit_missing:
-                    value_available = False
-                else:
-                    value = torch.tensor(float('nan'))
-            if value_available:
-                dates.append(date)
-                values.append(value)
-            date += datetime.timedelta(minutes=delta_minutes)
-        if len(dates) == 0:
-            # raise ValueError('RadLab ({}) no data found between {} and {}'.format(self.instrument, date_start, date_end))
-            return None, None
-        values = torch.stack(values).flatten()
-        return dates, values
 
 
 class Sequences(Dataset):
