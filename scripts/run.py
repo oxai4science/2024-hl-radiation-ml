@@ -191,8 +191,8 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
         prediction_date_start = datetime.datetime.fromisoformat(context_sequence[2][-1])
         prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_steps)]
 
-        goesxrs_predictions = prediction_batch[:, :, 0].cpu().numpy()
-        biosentinel_predictions = prediction_batch[:, :, 1].cpu().numpy()
+        goesxrs_predictions = prediction_batch[:, :, 0].detach().cpu().numpy()
+        biosentinel_predictions = prediction_batch[:, :, 1].detach().cpu().numpy()
 
         goesxrs_ground_truth_dates, goesxrs_ground_truth_values = data_dir_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
