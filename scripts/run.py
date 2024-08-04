@@ -215,7 +215,7 @@ def main():
     parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--context_window', type=int, default=15, help='Context window')
     parser.add_argument('--prediction_window', type=int, default=15, help='Prediction window')
-    parser.add_argument('--num_samples', type=int, default=50, help='Number of samples for MC dropout inference')
+    parser.add_argument('--num_samples', type=int, default=20, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
