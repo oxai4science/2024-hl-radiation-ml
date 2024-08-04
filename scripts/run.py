@@ -85,32 +85,6 @@ def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_prediction
             f.write('{},{},{},{},{},{},{}\n'.format(date, goesxrs_prediction_mean_value, goesxrs_prediction_std_value, biosentinel_prediction_mean_value, biosentinel_prediction_std_value, goesxrs_ground_truth_value, biosentinel_ground_truth_value))
             
 
-
-# def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
-#     if torch.is_tensor(test_predictions):
-#         test_predictions = test_predictions.cpu().numpy()
-#     if torch.is_tensor(test_ground_truths):
-#         test_ground_truths = test_ground_truths.cpu().numpy()
-#     print('Saving test plot to {}'.format(test_plot_file))
-    
-#     num_ticks = 10
-#     fig, ax = plt.subplots(figsize=(24, 6))
-#     ax.set_title('Biosentinel BPD')
-#     ax.plot(test_dates, test_predictions, label='Prediction', alpha=0.75)
-#     ax.plot(test_dates, test_ground_truths, label='Ground truth', alpha=0.75)
-#     ax.set_ylabel('Absorbed dose rate')
-#     ax.grid(color='#f0f0f0', zorder=0)
-#     ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-#     ax.legend()
-#     if log_scale:
-#         ax.set_yscale('log')
-    
-#     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-#     if title is not None:
-#         plt.title(title)
-#     plt.savefig(test_plot_file)
-
-
 def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name, title=None):
     print('Saving plot: {}'.format(file_name))
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
@@ -203,7 +177,9 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
         biosentinel_predictions = biosentinel_predictions.cpu().numpy()
 
         goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        goesxrs_ground_truth_values = dataset_goes_xrs.unnormalize_data(goesxrs_ground_truth_values)
         biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        biosentinel_ground_truth_values = dataset_biosentinel.unnormalize_data(biosentinel_ground_truth_values)
 
         file_name = os.path.join(args.target_dir, file_prefix)
         test_file = file_name + '.csv'
