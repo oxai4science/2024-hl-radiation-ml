@@ -153,7 +153,7 @@ def run_model(model, context, prediction_window):
     model.init(batch_size)
     context_output = model(context)
     print('context_output', context_output.shape)
-    x = context_output[:, -1, :]
+    x = context_output[:, -1, :].unsqueeze(1)
     print('x', x.shape)
     predictions = []
     for _ in range(prediction_window):
