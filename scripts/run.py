@@ -186,15 +186,15 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
         context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-        prediction_batch = run_model(model, context_batch, prediction_steps)
+        prediction_batch = run_model(model, context_batch, prediction_steps).detach().cpu().numpy()
 
         prediction_date_start = datetime.datetime.fromisoformat(context_sequence[2][-1])
         prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_steps)]
 
-        goesxrs_predictions = prediction_batch[:, :, 0].detach().cpu().numpy()
-        biosentinel_predictions = prediction_batch[:, :, 1].detach().cpu().numpy()
+        goesxrs_predictions = prediction_batch[:, :, 0]
+        biosentinel_predictions = prediction_batch[:, :, 1]
 
-        goesxrs_ground_truth_dates, goesxrs_ground_truth_values = data_dir_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
 
         file_name = os.path.join(args.target_dir, file_prefix)
