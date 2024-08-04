@@ -55,7 +55,7 @@ def seed(seed=None):
 
 
 def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name):
-    print('Saving test results to {}'.format(file_name))
+    print('Saving test results: {}'.format(file_name))
 
     goesxrs_prediction_mean = np.mean(goesxrs_predictions, axis=0)
     goesxrs_prediction_std = np.std(goesxrs_predictions, axis=0)
