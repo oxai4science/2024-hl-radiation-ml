@@ -188,8 +188,9 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
 
 
-
+        print('context', context.shape)
         context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
+        print('context_batch', context_batch.shape)
 
         output = run_model(model, context_batch, prediction_steps)
 
