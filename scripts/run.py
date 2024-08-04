@@ -98,7 +98,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     ax.yaxis.set_label_position("right")
     for i in range(num_samples):
         label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, alpha=prediction_alpha)
+        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', label='Ground truth', alpha=0.75)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_xticklabels([])
@@ -112,7 +112,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     ax.yaxis.set_label_position("right")
     for i in range(num_samples):
         label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, alpha=prediction_alpha)
+        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', label='Ground truth', alpha=0.75)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')
@@ -213,8 +213,8 @@ def main():
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
-    parser.add_argument('--context_window', type=int, default=10, help='Context window')
-    parser.add_argument('--prediction_window', type=int, default=10, help='Prediction window')
+    parser.add_argument('--context_window', type=int, default=15, help='Context window')
+    parser.add_argument('--prediction_window', type=int, default=15, help='Prediction window')
     parser.add_argument('--num_samples', type=int, default=5, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
