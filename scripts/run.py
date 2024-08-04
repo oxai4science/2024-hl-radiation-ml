@@ -180,11 +180,9 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
         predictions = []
 
-        context_goesxrs = test_sequence[0][:context_steps]
-        context_biosentinel = test_sequence[1][:context_steps]
+        context_goesxrs = test_sequence[0][:context_steps].unsqueeze(1)
+        context_biosentinel = test_sequence[1][:context_steps].unsqueeze(1)
 
-        print(context_goesxrs.shape)
-        print(context_biosentinel.shape)
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
 
 
