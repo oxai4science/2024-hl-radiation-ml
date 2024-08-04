@@ -148,7 +148,50 @@ def seed(seed=None):
 #     test_plot_file = file_name + '.pdf'
 #     save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=title, log_scale=True)
 
+def run_model(model, context, prediction_window):
+    batch_size = context.shape[0]
+    model.init(batch_size)
+    context_output = model(context)
+    x = context_output[:, -1]
+    predictions = []
+    for _ in range(prediction_window):
+        x = model(x)
+        predictions.append(x)
+    predictions = torch.cat(predictions, dim=1)
+    return predictions
 
+
+def run_test(model, date_start, date_end, file_prefix, title, args):
+        # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+        data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+        data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+
+        date_context_start = date_start - datetime.timedelta(minutes=args.context_window * args.delta_minutes)
+        date_beyond_end = date_end + datetime.timedelta(minutes=args.prediction_window * args.delta_minutes) # needed to give the sequence dataset an opportunity move a bit further ahead in start date, if date_start does not have all data available (required to be able to construct a sequence)
+
+        context_steps = args.context_window
+        prediction_steps = int((date_end - date_start).total_seconds() / (args.delta_minutes * 60))
+
+        dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_context_start, date_end=date_beyond_end)
+        dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_context_start, date_end=date_beyond_end)
+        dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window + args.prediction_window)
+
+        test_sequence = dataset_sequences[0]
+
+        predictions = []
+
+        context_goesxrs = test_sequence[0][:context_steps]
+        context_biosentinel = test_sequence[1][:context_steps]
+
+        context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
+        context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
+
+        output = run_model(model, context_batch, prediction_steps)
+
+        print(output.shape)
+            
+
+    
 def save_loss_plot(train_losses, valid_losses, plot_file):
     print('Saving plot to {}'.format(plot_file))
     plt.figure(figsize=(12, 6))
@@ -171,7 +214,9 @@ def main():
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
-    parser.add_argument('--sequence_length', type=int, default=10, help='Sequence length')
+    parser.add_argument('--context_window', type=int, default=10, help='Context window')
+    parser.add_argument('--prediction_window', type=int, default=10, help='Prediction window')
+    parser.add_argument('--num_samples', type=int, default=5, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
@@ -208,9 +253,9 @@ def main():
         device = torch.device(args.device)
 
 
-        data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
-        data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+        # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
         data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+        data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
         sys.stdout.flush()
         if args.mode == 'train':
@@ -231,7 +276,8 @@ def main():
             dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             # dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-            dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
+            training_sequence_length = args.context_window + args.prediction_window
+            dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
 
 
             # Split sequences into train and validation
@@ -244,12 +290,6 @@ def main():
 
             train_loader = DataLoader(dataset_sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
             valid_loader = DataLoader(dataset_sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-
-            # model_channels = len(dataset_sdo.channels)
-            # model_embedding_dim = 1024
-            # model_sequence_length = args.sequence_length
-            # model = SDOSequence(channels=model_channels, embedding_dim=model_embedding_dim, sequence_length=model_sequence_length)
-            # model = model.to(device)
 
             model_data_dim = 2
             model_lstm_dim = 1024
@@ -356,11 +396,11 @@ def main():
                             raise ValueError('Event ID not found in events: {}'.format(event_id))
                         date_start, date_end, max_pfu = EventCatalog[event_id]
                         print('Event ID: {}'.format(event_id))
-                        date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=args.sequence_length * args.delta_minutes)
+                        date_start = datetime.datetime.fromisoformat(date_start)
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args)
+                        run_test(model, date_start, date_end, file_prefix, title, args)
 
                 if args.test_seen_event_id is not None:
                     for event_id in args.test_seen_event_id:
@@ -368,11 +408,11 @@ def main():
                             raise ValueError('Event ID not found in events: {}'.format(event_id))
                         date_start, date_end, max_pfu = EventCatalog[event_id]
                         print('Event ID: {}'.format(event_id))
-                        date_start = datetime.datetime.fromisoformat(date_start) - datetime.timedelta(minutes=args.sequence_length * args.delta_minutes)
+                        date_start = datetime.datetime.fromisoformat(date_start)
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-seen-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args)
+                        run_test(model, date_start, date_end, file_prefix, title, args)
 
         if args.mode == 'test':
             print('\n*** Testing mode\n')
@@ -416,7 +456,7 @@ def main():
 
 
             for date_start, date_end, file_prefix, title in tests_to_run:
-                run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args)
+                run_test(model, date_start, date_end, file_prefix, title, args)
 
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
