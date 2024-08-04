@@ -113,9 +113,10 @@ def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_prediction
 
 def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name, title=None):
     print('Saving plot: {}'.format(file_name))
-    fix, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 5), height_ratios=[1,1])
+    fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
     num_samples = goesxrs_predictions.shape[0]
+    prediction_alpha = 0.2
 
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
@@ -123,7 +124,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     ax.yaxis.set_label_position("right")
     for i in range(num_samples):
         label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, alpha=0.1)
+        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, alpha=prediction_alpha)
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', label='Ground truth', alpha=0.75)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_xticklabels([])
@@ -137,7 +138,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     ax.yaxis.set_label_position("right")
     for i in range(num_samples):
         label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, alpha=0.1)
+        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, alpha=prediction_alpha)
     ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', label='Ground truth', alpha=0.75)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')
