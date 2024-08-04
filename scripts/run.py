@@ -152,9 +152,7 @@ def run_model(model, context, prediction_window):
     batch_size = context.shape[0]
     model.init(batch_size)
     context_output = model(context)
-    print('context_output', context_output.shape)
     x = context_output[:, -1, :].unsqueeze(1)
-    print('x', x.shape)
     predictions = []
     for _ in range(prediction_window):
         x = model(x)
@@ -180,23 +178,20 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
         test_sequence = dataset_sequences[0]
 
-        predictions = []
-
         context_goesxrs = test_sequence[0][:context_steps].unsqueeze(1)
         context_biosentinel = test_sequence[1][:context_steps].unsqueeze(1)
         context_goesxrs = context_goesxrs.to(args.device)
         context_biosentinel = context_biosentinel.to(args.device)
 
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
-
-
-        print('context', context.shape)
         context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-        print('context_batch', context_batch.shape)
-
         output = run_model(model, context_batch, prediction_steps)
 
-        print(output.shape)
+        predictions = []
+
+
+        print('prediction_steps', prediction_steps)
+        print('predictions', output.shape)
             
 
     
