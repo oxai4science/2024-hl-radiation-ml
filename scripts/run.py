@@ -108,7 +108,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
-    ax.set_ylabel('Flux\n[W/m^2]')
+    ax.set_ylabel('X-ray flux\n[W/m^2]')
     ax.yaxis.set_label_position("right")
     for i in range(num_samples):
         label = 'Prediction' if i == 0 else None
