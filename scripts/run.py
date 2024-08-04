@@ -86,7 +86,7 @@ def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_prediction
             
 
 def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name, title=None):
-    print('Saving plot: {}'.format(file_name))
+    print('Saving test plot: {}'.format(file_name))
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
     num_samples = goesxrs_predictions.shape[0]
