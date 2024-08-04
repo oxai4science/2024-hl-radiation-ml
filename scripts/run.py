@@ -110,6 +110,19 @@ def seed(seed=None):
 #         for i in range(len(test_predictions)):
 #             f.write('{},{},{}\n'.format(test_dates[i], test_predictions[i], test_ground_truths[i]))
 
+def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file):
+    print('Saving test results to {}'.format(test_file))
+    goesxrs_prediction_mean = np.mean(goesxrs_predictions, axis=0)
+    goesxrs_prediction_std = np.std(goesxrs_predictions, axis=0)
+
+    biosentinel_prediction_mean = np.mean(biosentinel_predictions, axis=0)
+    biosentinel_prediction_std = np.std(biosentinel_predictions, axis=0)
+
+    with open(test_file, 'w') as f:
+        f.write('date,goesxrs_prediction_mean,goesxrs_prediction_std,biosentinel_prediction_mean,biosentinel_prediction_std,ground_truth_goesxrs,ground_truth_biosentinel\n')
+        for i in range(len(prediction_dates)):
+            f.write('{},{},{},{},{},{},{}\n'.format(prediction_dates[i], goesxrs_prediction_mean[i], goesxrs_prediction_std[i], biosentinel_prediction_mean[i], biosentinel_prediction_std[i], goesxrs_ground_truth_values[i], biosentinel_ground_truth_values[i]))
+
 
 # def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
 #     if torch.is_tensor(test_predictions):
@@ -136,29 +149,18 @@ def seed(seed=None):
 #     plt.savefig(test_plot_file)
 
 
-# def run_test(model, date_start, date_end, file_prefix, title, data_dir_sdo, data_dir_radlab, args):
-#     test_dates, test_predictions_normalized, test_ground_truths_normalized, test_dataset_biosentinel = test(model, date_start, date_end, data_dir_sdo, data_dir_radlab, args)
-
-#     test_predictions = test_dataset_biosentinel.unnormalize_data(test_predictions_normalized)
-#     test_ground_truths = test_dataset_biosentinel.unnormalize_data(test_ground_truths_normalized)
-
-#     file_name = os.path.join(args.target_dir, file_prefix)
-#     test_file = file_name + '.csv'
-#     save_test_file(test_dates, test_predictions, test_ground_truths, test_file)
-#     test_plot_file = file_name + '.pdf'
-#     save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=title, log_scale=True)
 
 def run_model(model, context, prediction_window):
     batch_size = context.shape[0]
     model.init(batch_size)
     context_output = model(context)
     x = context_output[:, -1, :].unsqueeze(1)
-    predictions = []
+    prediction = []
     for _ in range(prediction_window):
         x = model(x)
-        predictions.append(x)
-    predictions = torch.cat(predictions, dim=1)
-    return predictions
+        prediction.append(x)
+    prediction = torch.cat(prediction, dim=1)
+    return prediction
 
 
 def run_test(model, date_start, date_end, file_prefix, title, args):
@@ -167,31 +169,41 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
         data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
         date_context_start = date_start - datetime.timedelta(minutes=args.context_window * args.delta_minutes)
-        date_beyond_end = date_end + datetime.timedelta(minutes=args.prediction_window * args.delta_minutes) # needed to give the sequence dataset an opportunity move a bit further ahead in start date, if date_start does not have all data available (required to be able to construct a sequence)
 
         context_steps = args.context_window
         prediction_steps = int((date_end - date_start).total_seconds() / (args.delta_minutes * 60))
 
-        dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_context_start, date_end=date_beyond_end)
-        dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_context_start, date_end=date_beyond_end)
-        dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window + args.prediction_window)
+        dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_context_start, date_end=date_end)
+        dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_context_start, date_end=date_end)
+        dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window)
 
-        test_sequence = dataset_sequences[0]
+        context_sequence = dataset_sequences[0]
 
-        context_goesxrs = test_sequence[0][:context_steps].unsqueeze(1)
-        context_biosentinel = test_sequence[1][:context_steps].unsqueeze(1)
+        context_goesxrs = context_sequence[0][:context_steps].unsqueeze(1)
+        context_biosentinel = context_sequence[1][:context_steps].unsqueeze(1)
         context_goesxrs = context_goesxrs.to(args.device)
         context_biosentinel = context_biosentinel.to(args.device)
 
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
         context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-        output = run_model(model, context_batch, prediction_steps)
+        prediction_batch = run_model(model, context_batch, prediction_steps)
 
-        predictions = []
+        prediction_date_start = context[2][-1]
+        prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_steps)]
 
+        goesxrs_predictions = prediction_batch[:, :, 0].cpu().numpy()
+        biosentinel_predictions = prediction_batch[:, :, 1].cpu().numpy()
 
-        print('prediction_steps', prediction_steps)
-        print('predictions', output.shape)
+        goesxrs_ground_truth_dates, goesxrs_ground_truth_values = data_dir_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+
+        file_name = os.path.join(args.target_dir, file_prefix)
+        test_file = file_name + '.csv'
+        save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
+
+        # test_plot_file = file_name + '.pdf'
+        # save_test_plot(prediction_dates, prediction_batch, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title, log_scale=True)
+
             
 
     
