@@ -341,7 +341,7 @@ def main():
                 with torch.no_grad():
                     valid_loss = 0.
                     valid_seqs = 0
-                    model.eval()
+                    # model.eval()
                     with tqdm(total=len(valid_loader), desc='Validation') as pbar:
                         for goesxrs, biosentinel, _ in valid_loader:
                             batch_size = goesxrs.shape[0]
