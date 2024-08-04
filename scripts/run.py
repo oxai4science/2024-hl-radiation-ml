@@ -112,6 +112,7 @@ def seed(seed=None):
 
 def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file):
     print('Saving test results to {}'.format(test_file))
+
     goesxrs_prediction_mean = np.mean(goesxrs_predictions, axis=0)
     goesxrs_prediction_std = np.std(goesxrs_predictions, axis=0)
 
@@ -121,7 +122,24 @@ def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_prediction
     with open(test_file, 'w') as f:
         f.write('date,goesxrs_prediction_mean,goesxrs_prediction_std,biosentinel_prediction_mean,biosentinel_prediction_std,ground_truth_goesxrs,ground_truth_biosentinel\n')
         for i in range(len(prediction_dates)):
-            f.write('{},{},{},{},{},{},{}\n'.format(prediction_dates[i], goesxrs_prediction_mean[i], goesxrs_prediction_std[i], biosentinel_prediction_mean[i], biosentinel_prediction_std[i], goesxrs_ground_truth_values[i], biosentinel_ground_truth_values[i]))
+            date = prediction_dates[i]
+            goesxrs_prediction_mean_value = goesxrs_prediction_mean[i]
+            goesxrs_prediction_std_value = goesxrs_prediction_std[i]
+            biosentinel_prediction_mean_value = biosentinel_prediction_mean[i]
+            biosentinel_prediction_std_value = biosentinel_prediction_std[i]
+
+            if date in goesxrs_ground_truth_dates:
+                goesxrs_ground_truth_value = goesxrs_ground_truth_values[goesxrs_ground_truth_dates.index(date)]
+            else:
+                goesxrs_ground_truth_value = float('nan')
+
+            if date in biosentinel_ground_truth_dates:
+                biosentinel_ground_truth_value = biosentinel_ground_truth_values[biosentinel_ground_truth_dates.index(date)]
+            else:
+                biosentinel_ground_truth_value = float('nan')
+
+            f.write('{},{},{},{},{},{},{}\n'.format(date, goesxrs_prediction_mean_value, goesxrs_prediction_std_value, biosentinel_prediction_mean_value, biosentinel_prediction_std_value, goesxrs_ground_truth_value, biosentinel_ground_truth_value))
+            
 
 
 # def save_test_plot(test_dates, test_predictions, test_ground_truths, test_plot_file, title=None, log_scale=False):
