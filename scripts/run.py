@@ -182,8 +182,8 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
         context_goesxrs = test_sequence[0][:context_steps].unsqueeze(1)
         context_biosentinel = test_sequence[1][:context_steps].unsqueeze(1)
-        context_goesxrs.to(args.device)
-        context_biosentinel.to(args.device)
+        context_goesxrs = context_goesxrs.to(args.device)
+        context_biosentinel = context_biosentinel.to(args.device)
 
         context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
 
