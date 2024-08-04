@@ -225,6 +225,7 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
+    parser.add_argument('--lstm_depth', type=int, default=2, help='LSTM depth')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
@@ -292,7 +293,7 @@ def main():
 
             model_data_dim = 2
             model_lstm_dim = 1024
-            model_lstm_depth = 2
+            model_lstm_depth = args.lstm_depth
             model_dropout = 0.2
             model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout)
             model = model.to(device)
