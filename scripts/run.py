@@ -154,6 +154,7 @@ def run_model(model, context, prediction_window):
     context_output = model(context)
     print('context_output', context_output.shape)
     x = context_output[:, -1]
+    print('x', x.shape)
     predictions = []
     for _ in range(prediction_window):
         x = model(x)
