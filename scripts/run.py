@@ -133,8 +133,8 @@ def run_model(model, context, prediction_window):
     x = context_output[:, -1, :].unsqueeze(1)
     prediction = []
     for _ in range(prediction_window):
-        x = model(x)
         prediction.append(x)
+        x = model(x)
     prediction = torch.cat(prediction, dim=1)
     return prediction
 
