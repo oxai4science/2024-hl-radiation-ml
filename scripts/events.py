@@ -109,7 +109,7 @@ events = events.sort_values(by='begin')
 pre_begin = 2
 post_max = 6
 
-format = 'ISO8601'
+format = '%Y-%m-%dT%H:%M:%S'
 events['duration'] = pd.to_datetime(events['max'], format=format) - pd.to_datetime(events['begin'], format=format)
 events['date_start'] = pd.to_datetime(events['begin'], format=format) - pre_begin * events['duration']
 events['date_end'] = pd.to_datetime(events['max'], format=format) + post_max * events['duration']

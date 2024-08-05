@@ -15,6 +15,8 @@ import matplotlib.dates as mdates
 from tqdm import tqdm
 import shutil
 import traceback
+import matplotlib.animation as animation
+
 
 from datasets import SDOMLlite, RadLab, GOESXRS, Sequences
 from models import RadRecurrent
@@ -105,6 +107,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')    
     ax.legend()
+    ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Prediction start')
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
@@ -119,6 +122,7 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
     myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
     ax.legend()
+    ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Prediction start')
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     if title is not None:
@@ -129,67 +133,140 @@ def save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_prediction
 def run_model(model, context, prediction_window):
     batch_size = context.shape[0]
     model.init(batch_size)
-    context_output = model(context)
+    context_input = context
+    prediction = [context_input[:, -1, :].unsqueeze(1)] # prepend the prediction values with the last context input
+    context_output = model(context_input)
     x = context_output[:, -1, :].unsqueeze(1)
-    prediction = []
     for _ in range(prediction_window):
         prediction.append(x)
         x = model(x)
     prediction = torch.cat(prediction, dim=1)
     return prediction
 
+def predict(model, date_start, date_end, args):
+    data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+    data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+
+    date_context_start = date_start - datetime.timedelta(minutes=(args.context_window - 1) * args.delta_minutes)
+
+    prediction_window = int((date_end - date_start).total_seconds() / (args.delta_minutes * 60))
+
+    dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_context_start, date_end=date_end)
+    dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_context_start, date_end=date_end)
+    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window)
+
+    context_sequence = dataset_sequences[0]
+
+    context_goesxrs = context_sequence[0][:args.context_window].unsqueeze(1)
+    context_biosentinel = context_sequence[1][:args.context_window].unsqueeze(1)
+    context_goesxrs = context_goesxrs.to(args.device)
+    context_biosentinel = context_biosentinel.to(args.device)
+
+    context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
+    context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
+    prediction_batch = run_model(model, context_batch, prediction_window).detach()
+
+    prediction_date_start = datetime.datetime.fromisoformat(context_sequence[2][-1])
+    prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
+
+    goesxrs_predictions = prediction_batch[:, :, 0]
+    biosentinel_predictions = prediction_batch[:, :, 1]
+
+    goesxrs_predictions = dataset_goes_xrs.unnormalize_data(goesxrs_predictions)
+    biosentinel_predictions = dataset_biosentinel.unnormalize_data(biosentinel_predictions)
+
+    goesxrs_predictions = goesxrs_predictions.cpu().numpy()
+    biosentinel_predictions = biosentinel_predictions.cpu().numpy()
+
+    return prediction_dates, goesxrs_predictions, biosentinel_predictions
+
+
 
 def run_test(model, date_start, date_end, file_prefix, title, args):
-        # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
-        data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
-        data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
+    # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+    date_end = datetime.datetime.fromisoformat('2023-02-25T07:15:00')
+    data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+    data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
-        date_context_start = date_start - datetime.timedelta(minutes=args.context_window * args.delta_minutes)
 
-        context_steps = args.context_window
-        prediction_steps = int((date_end - date_start).total_seconds() / (args.delta_minutes * 60))
+    dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_start, date_end=date_end, normalize=False)
+    dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_start, date_end=date_end, normalize=False)
+    goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+    biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
 
-        dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_context_start, date_end=date_end)
-        dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_context_start, date_end=date_end)
-        dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window)
+    prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date_start, date_end, args)
 
-        context_sequence = dataset_sequences[0]
+    file_name = os.path.join(args.target_dir, file_prefix)
+    test_file = file_name + '.csv'
+    save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
 
-        context_goesxrs = context_sequence[0][:context_steps].unsqueeze(1)
-        context_biosentinel = context_sequence[1][:context_steps].unsqueeze(1)
-        context_goesxrs = context_goesxrs.to(args.device)
-        context_biosentinel = context_biosentinel.to(args.device)
+    test_plot_file = file_name + '.pdf'
+    save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
 
-        context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
-        context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-        prediction_batch = run_model(model, context_batch, prediction_steps).detach()
 
-        prediction_date_start = datetime.datetime.fromisoformat(context_sequence[2][-1])
-        prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_steps)]
+def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args):
+    data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+    data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
-        goesxrs_predictions = prediction_batch[:, :, 0]
-        biosentinel_predictions = prediction_batch[:, :, 1]
+    dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_start, date_end=date_end, normalize=False)
+    dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_start, date_end=date_end, normalize=False)
+    goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+    biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
 
-        goesxrs_predictions = dataset_goes_xrs.unnormalize_data(goesxrs_predictions)
-        biosentinel_predictions = dataset_biosentinel.unnormalize_data(biosentinel_predictions)
+    fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
-        goesxrs_predictions = goesxrs_predictions.cpu().numpy()
-        biosentinel_predictions = biosentinel_predictions.cpu().numpy()
+    ims = {}
+    ax = axs['biosentinel']
+    ax.set_title('Biosentinel BPD')
+    ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
+    ax.yaxis.set_label_position("right")
+    ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', alpha=0.75)
+    # ax.tick_params(rotation=45)
+    ax.set_xticklabels([])
+    ax.grid(color='#f0f0f0', zorder=0)
+    ax.set_yscale('log')
+    # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
+    ims['biosentinel'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
-        goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-        goesxrs_ground_truth_values = dataset_goes_xrs.unnormalize_data(goesxrs_ground_truth_values)
-        biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-        biosentinel_ground_truth_values = dataset_biosentinel.unnormalize_data(biosentinel_ground_truth_values)
+    ax = axs['goesxrs']
+    ax.set_title('GOES XRS')
+    ax.set_ylabel('X-ray flux\n[W/m^2]')
+    ax.yaxis.set_label_position("right")
+    ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', alpha=0.75)
+    # ax.tick_params(rotation=45)
+    ax.set_xticks(axs['biosentinel'].get_xticks())
+    ax.set_xlim(axs['biosentinel'].get_xlim())
+    ax.grid(color='#f0f0f0', zorder=0)
+    ax.set_yscale('log')
+    myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
+    ax.xaxis.set_major_formatter(myFmt)
+    # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
+    ims['goesxrs'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
+
+    title = plt.suptitle(title_prefix + str(date_start))
+
+    num_frames = int(((date_end - date_start).total_seconds() / 60) / args.delta_minutes) + 1
+
+    with tqdm(total=num_frames) as pbar:
+        def run(frame):
+            date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
+            pbar.set_description('Frame {}'.format(date))
+            pbar.update(1)
+
+            title.set_text(title_prefix + str(date))
+            ims['biosentinel'].set_xdata([date, date])
+            ims['goesxrs'].set_xdata([date, date])
+
+        # plt.tight_layout()
+        plt.tight_layout(rect=[0, 0, 1, 0.97])
+        anim = animation.FuncAnimation(fig, run, interval=300, frames=num_frames)
+        
         file_name = os.path.join(args.target_dir, file_prefix)
-        test_file = file_name + '.csv'
-        save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
-
-        test_plot_file = file_name + '.pdf'
-        save_test_plot(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
-
-            
-
+        file_name_mp4 = file_name + '.mp4'
+        print('Saving video to {}'.format(file_name_mp4))
+        writer_mp4 = animation.FFMpegWriter(fps=15)
+        anim.save(file_name_mp4, writer=writer_mp4)
     
 def save_loss_plot(train_losses, valid_losses, plot_file):
     print('Saving plot to {}'.format(plot_file))
@@ -213,8 +290,8 @@ def main():
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
-    parser.add_argument('--context_window', type=int, default=15, help='Context window')
-    parser.add_argument('--prediction_window', type=int, default=15, help='Prediction window')
+    parser.add_argument('--context_window', type=int, default=3, help='Context window')
+    parser.add_argument('--prediction_window', type=int, default=4, help='Prediction window')
     parser.add_argument('--num_samples', type=int, default=20, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
@@ -229,8 +306,11 @@ def main():
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
-    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
-    parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
+    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
+    # parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
+    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01'], help='Test event IDs')
+    parser.add_argument('--test_seen_event_id', nargs='+', default=[], help='Test event IDs seen during training')
+
     parser.add_argument('--model_file', type=str, help='Model file')
 
     args = parser.parse_args()
@@ -400,7 +480,8 @@ def main():
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        run_test(model, date_start, date_end, file_prefix, title, args)
+                        # run_test(model, date_start, date_end, file_prefix, title, args)
+                        run_test_video(model, date_start, date_end, file_prefix, title, args)
 
                 if args.test_seen_event_id is not None:
                     for event_id in args.test_seen_event_id:

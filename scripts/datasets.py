@@ -269,7 +269,7 @@ class PandasDataset(Dataset):
         dates = []
         values = []
         date = date_start
-        while date < date_end:
+        while date <= date_end:
             value = self.get_data(date)
             value_available = True
             if value is None:
