@@ -212,6 +212,7 @@ class PandasDataset(Dataset):
         print('End date             : {}'.format(self.date_end))
 
         print('Rows after processing: {:,}'.format(len(self.data)))
+        # print('Memory usage         : {:,} bytes'.format(self.data.memory_usage(deep=True).sum()))
 
 
 
