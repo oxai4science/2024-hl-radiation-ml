@@ -80,25 +80,25 @@ events.append(('crater', '2022-03-28T13:25:00', '2022-03-28T14:50:00', 19))
 events.append(('crater', '2022-03-31T06:20:00', '2022-03-31T06:30:00', 11))
 events.append(('crater', '2022-04-02T14:30:00', '2022-04-02T16:00:00', 32))
 events.append(('crater', '2022-08-27T11:55:00', '2022-08-27T12:20:00', 27))
-events.append(('crater', '2023-02-25T21:10:00', '2023-02-26T04:40', 58)) # Also in biosentinel
-events.append(('crater', '2023-03-13T07:35:00', '2023-03-15T04:25', 22)) # Also in biosentinel
-events.append(('crater', '2023-04-23T18:15:00', '2023-04-23T18:20', 26)) # Also in biosentinel
-events.append(('crater', '2023-05-08T12:40:00', '2023-05-09T01:50', 38)) # Also in biosentinel
-events.append(('crater', '2023-05-09T23:35:00', '2023-05-10T12:50', 83)) # Also in biosentinel
-events.append(('crater', '2023-07-16T06:35:00', '2023-07-16T07:35', 18)) # Also in biosentinel
-events.append(('crater', '2023-07-18T01:15:00', '2023-07-18T06:15', 620)) # Also in biosentinel
-events.append(('crater', '2023-07-29T00:20:00', '2023-07-29T09:20', 154)) # Also in biosentinel
-events.append(('crater', '2023-08-05T11:15:00', '2023-08-05T17:45', 18)) # Also in biosentinel
-events.append(('crater', '2023-08-08T01:15:00', '2023-08-09T00:25', 47)) # Also in biosentinel
-events.append(('crater', '2023-09-01T04:30:00', '2023-09-01T06:10', 25)) # Also in biosentinel
-events.append(('crater', '2023-12-15T23:45:00', '2023-12-16T00:15', 13)) # Also in biosentinel
-events.append(('crater', '2024-01-03T20:05:00', '2024-01-04T08:35', 20)) # Also in biosentinel
-events.append(('crater', '2024-01-29T06:15:00', '2024-01-29T18:05', 137)) # Also in biosentinel
-events.append(('crater', '2024-02-09T15:30:00', '2024-02-09T23:55', 187)) # Also in biosentinel
-events.append(('crater', '2024-02-12T08:05:00', '2024-02-13T16:05', 118)) # Also in biosentinel
-events.append(('crater', '2024-03-23T08:15:00', '2024-03-23T18:20', 956)) # Also in biosentinel
-events.append(('crater', '2024-05-10T13:35:00', '2024-05-10T17:45', 208)) # Also in biosentinel
-events.append(('crater', '2024-05-11T02:10:00', '2024-05-11T09:10', 116)) # Also in biosentinel
+events.append(('crater', '2023-02-25T21:10:00', '2023-02-26T04:40:00', 58)) # Also in biosentinel
+events.append(('crater', '2023-03-13T07:35:00', '2023-03-15T04:25:00', 22)) # Also in biosentinel
+events.append(('crater', '2023-04-23T18:15:00', '2023-04-23T18:20:00', 26)) # Also in biosentinel
+events.append(('crater', '2023-05-08T12:40:00', '2023-05-09T01:50:00', 38)) # Also in biosentinel
+events.append(('crater', '2023-05-09T23:35:00', '2023-05-10T12:50:00', 83)) # Also in biosentinel
+events.append(('crater', '2023-07-16T06:35:00', '2023-07-16T07:35:00', 18)) # Also in biosentinel
+events.append(('crater', '2023-07-18T01:15:00', '2023-07-18T06:15:00', 620)) # Also in biosentinel
+events.append(('crater', '2023-07-29T00:20:00', '2023-07-29T09:20:00', 154)) # Also in biosentinel
+events.append(('crater', '2023-08-05T11:15:00', '2023-08-05T17:45:00', 18)) # Also in biosentinel
+events.append(('crater', '2023-08-08T01:15:00', '2023-08-09T00:25:00', 47)) # Also in biosentinel
+events.append(('crater', '2023-09-01T04:30:00', '2023-09-01T06:10:00', 25)) # Also in biosentinel
+events.append(('crater', '2023-12-15T23:45:00', '2023-12-16T00:15:00', 13)) # Also in biosentinel
+events.append(('crater', '2024-01-03T20:05:00', '2024-01-04T08:35:00', 20)) # Also in biosentinel
+events.append(('crater', '2024-01-29T06:15:00', '2024-01-29T18:05:00', 137)) # Also in biosentinel
+events.append(('crater', '2024-02-09T15:30:00', '2024-02-09T23:55:00', 187)) # Also in biosentinel
+events.append(('crater', '2024-02-12T08:05:00', '2024-02-13T16:05:00', 118)) # Also in biosentinel
+events.append(('crater', '2024-03-23T08:15:00', '2024-03-23T18:20:00', 956)) # Also in biosentinel
+events.append(('crater', '2024-05-10T13:35:00', '2024-05-10T17:45:00', 208)) # Also in biosentinel
+events.append(('crater', '2024-05-11T02:10:00', '2024-05-11T09:10:00', 116)) # Also in biosentinel
 
 events = pd.DataFrame(events, columns=['prefix', 'begin', 'max', 'max_pfu'])
 
