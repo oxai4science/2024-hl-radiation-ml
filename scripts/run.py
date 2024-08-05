@@ -184,7 +184,7 @@ def predict(model, date_start, date_end, args):
 
 def run_test(model, date_start, date_end, file_prefix, title, args):
     # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
-    date_end = datetime.datetime.fromisoformat('2023-02-25T07:15:00')
+    # date_end = datetime.datetime.fromisoformat('2023-02-25T07:15:00')
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
@@ -313,17 +313,17 @@ def main():
     parser.add_argument('--seed', type=int, default=0, help='Random number generator seed')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
     parser.add_argument('--lr', type=float, default=1e-05, help='Learning rate')
-    parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay')
+    parser.add_argument('--weight_decay', type=float, default=0, help='Weight decay')
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--lstm_depth', type=int, default=2, help='LSTM depth')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
-    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
-    parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
-    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01'], help='Test event IDs')
-    parser.add_argument('--test_seen_event_id', nargs='+', default=[], help='Test event IDs seen during training')
+    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
+    # parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
+    parser.add_argument('--test_event_id', nargs='+', default=None, help='Test event IDs')
+    parser.add_argument('--test_seen_event_id', nargs='+', default=None, help='Test event IDs seen during training')
 
     parser.add_argument('--model_file', type=str, help='Model file')
 
