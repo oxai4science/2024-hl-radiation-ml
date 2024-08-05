@@ -215,6 +215,8 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
 
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
+    prediction_alpha = 0.1
+
     ims = {}
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
@@ -227,6 +229,9 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     ax.set_yscale('log')
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
     ims['biosentinel'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+    # prediction plots
+    for i in range(args.num_samples):
+        ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
@@ -257,6 +262,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
             title.set_text(title_prefix + str(date))
             ims['biosentinel'].set_xdata([date, date])
             ims['goesxrs'].set_xdata([date, date])
+
+            prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
+
+            for i in range(args.num_samples):
+                ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
 
         # plt.tight_layout()
         plt.tight_layout(rect=[0, 0, 1, 0.97])

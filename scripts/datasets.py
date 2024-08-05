@@ -296,7 +296,7 @@ class GOESXRS(PandasDataset):
 
         data = pd.read_csv(file_name)
         data['datetime'] = pd.to_datetime(data['datetime'])
-        data = data.sort_values(by='datetime')
+        # data = data.sort_values(by='datetime')
         print('Rows                 : {:,}'.format(len(data)))
 
         data = data[data['xrsb2_flux'] > 3e-8]
