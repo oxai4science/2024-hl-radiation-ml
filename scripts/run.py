@@ -247,7 +247,10 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     ax.xaxis.set_major_formatter(myFmt)
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
     ims['goesxrs'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
-
+    # prediction plots
+    for i in range(args.num_samples):
+        ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
+        
 
     title = plt.suptitle(title_prefix + str(date_start))
 
@@ -267,6 +270,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
 
             for i in range(args.num_samples):
                 ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
+                ims['goesxrs_prediction_{}'.format(i)].set_data(prediction_dates, goesxrs_predictions[i])
 
         # plt.tight_layout()
         plt.tight_layout(rect=[0, 0, 1, 0.97])
@@ -316,9 +320,9 @@ def main():
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
-    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
-    # parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
-    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01'], help='Test event IDs')
+    parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01', 'biosentinel07', 'biosentinel19'], help='Test event IDs')
+    parser.add_argument('--test_seen_event_id', nargs='+', default=['biosentinel04', 'biosentinel15', 'biosentinel18'], help='Test event IDs seen during training')
+    # parser.add_argument('--test_event_id', nargs='+', default=['biosentinel01'], help='Test event IDs')
     parser.add_argument('--test_seen_event_id', nargs='+', default=[], help='Test event IDs seen during training')
 
     parser.add_argument('--model_file', type=str, help='Model file')
@@ -490,8 +494,8 @@ def main():
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        # run_test(model, date_start, date_end, file_prefix, title, args)
-                        run_test_video(model, date_start, date_end, file_prefix, title, args)
+                        run_test(model, date_start, date_end, file_prefix, title, args)
+                        # run_test_video(model, date_start, date_end, file_prefix, title, args)
 
                 if args.test_seen_event_id is not None:
                     for event_id in args.test_seen_event_id:
