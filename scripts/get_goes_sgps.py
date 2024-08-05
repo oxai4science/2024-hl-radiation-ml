@@ -27,7 +27,7 @@ def process(file_names):
             return True
         except Exception as e:
             print('Error: {}'.format(e))
-            raise RuntimeError('Error downloading file: {}'.format(remote_file_name))
+            # raise RuntimeError('Error downloading file: {}'.format(remote_file_name))
     if os.path.exists(local_file_name):
         os.remove(local_file_name)
     return False
