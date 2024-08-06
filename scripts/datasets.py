@@ -352,6 +352,46 @@ class GOESSGPS(PandasDataset):
         return data
 
 
+def cube_root(x):
+    return torch.sign(x) * torch.pow(torch.abs(x), 1/3.)
+
+
+class RSTNRadio(PandasDataset):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+        print('\nRadio Solar Telescope Network (RSTN) Solar Radio Burst')
+        print('File                 : {}'.format(file_name))
+        delta_minutes = 1
+
+        data = pd.read_csv(file_name)
+        data['datetime'] = pd.to_datetime(data['datetime'])
+        # data = data.sort_values(by='datetime')
+        print('Rows                 : {:,}'.format(len(data)))
+
+        column = '245MHz'
+        # Remove outliers based on quantiles, takes care of a giant outlier at 2022-07-22 23:14:00, where 245MHz is 22752400.733333
+        q_low = data[column].quantile(0.001)
+        q_hi  = data[column].quantile(0.999)
+        data = data[(data[column] < q_hi) & (data[column] > q_low)]
+
+        super().__init__('Radio Solar Telescope Network (RSTN) Solar Radio Burst', data, column, delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+
+    def normalize_data(self, data):
+        data = cube_root(data)
+        mean_cuberoot_data = 2.264420986175537
+        std_cuberoot_data = 0.9795352816581726
+        data = data - mean_cuberoot_data
+        data = data / std_cuberoot_data
+        return data
+    
+    def unnormalize_data(self, data):
+        data = data * data * data
+        mean_cuberoot_data = 2.264420986175537
+        std_cuberoot_data = 0.9795352816581726
+        data = data * std_cuberoot_data
+        data = data + mean_cuberoot_data
+        return data
+
+
 # BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
 class RadLab(PandasDataset):
     def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):

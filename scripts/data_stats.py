@@ -8,7 +8,7 @@ import torch
 import matplotlib
 import matplotlib.pyplot as plt
 
-from datasets import RadLab, SDOMLlite, GOESXRS, GOESSGPS
+from datasets import RadLab, SDOMLlite, GOESXRS, GOESSGPS, RSTNRadio
 
 
 matplotlib.use('Agg')
@@ -22,9 +22,10 @@ def main():
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--goes_sgps_file', type=str, default='goes/goes-sgps.csv', help='GOES SGPS file')
+    parser.add_argument('--rstn_radio_file', type=str, default='rstn-radio/rstn-radio.csv', help='RSTN Radio file')
     parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to use')
-    # parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'GOESSGPS', 'BPD', 'CRaTER-D1D2'], help='Instruments')
-    parser.add_argument('--instruments', nargs='+', default=['GOESSGPS'], help='Instruments')
+    parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'GOESSGPS', 'RSTNRadio', 'BPD', 'CRaTER-D1D2'], help='Instruments')
+    # parser.add_argument('--instruments', nargs='+', default=['RSTNRadio'], help='Instruments')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     args = parser.parse_args()
@@ -47,6 +48,7 @@ def main():
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_goes_sgps = os.path.join(args.data_dir, args.goes_sgps_file)
+    data_dir_rstn_radio = os.path.join(args.data_dir, args.rstn_radio_file)
 
 
     for instrument in args.instruments:
@@ -64,6 +66,11 @@ def main():
             runs = [ 
                 ('normalized', GOESSGPS(data_dir_goes_sgps, normalize=True), 'AvgIntProtonFlux (normalized)'),
                 ('unnormalized', GOESSGPS(data_dir_goes_sgps, normalize=False), 'AvgIntProtonFlux')
+            ]
+        elif instrument == 'RSTNRadio':
+            runs = [ 
+                ('normalized', RSTNRadio(data_dir_rstn_radio, normalize=True), 'Radio flux (normalized)'),
+                ('unnormalized', RSTNRadio(data_dir_rstn_radio, normalize=False), 'Radio flux')
             ]
         else:
             runs = [ 
