@@ -59,12 +59,12 @@ class SDOSequence(nn.Module):
 
 
 class RadRecurrent(nn.Module):
-    def __init__(self, data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2, context_window=10, predict_window=10):
+    def __init__(self, data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2, context_window=10, prediction_window=10):
         super().__init__()
         self.lstm_dim = lstm_dim
         self.lstm_depth = lstm_depth
         self.context_window = context_window # Not used within model, only for reference
-        self.predict_window = predict_window # Not used within model, only for reference
+        self.prediction_window = prediction_window # Not used within model, only for reference
 
         self.lstm = nn.LSTM(input_size=data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, dropout=dropout, batch_first=True)
         self.fc1 = nn.Linear(lstm_dim, data_dim)

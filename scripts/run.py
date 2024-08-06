@@ -56,7 +56,7 @@ def seed(seed=None):
     torch.manual_seed(seed)
 
 
-def save_test_file(context_dates, prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name):
+def save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name):
     print('Saving test results: {}'.format(file_name))
 
     goesxrs_prediction_mean = np.mean(goesxrs_predictions, axis=0)
@@ -87,7 +87,7 @@ def save_test_file(context_dates, prediction_dates, goesxrs_predictions, biosent
             f.write('{},{},{},{},{},{},{}\n'.format(date, goesxrs_prediction_mean_value, goesxrs_prediction_std_value, biosentinel_prediction_mean_value, biosentinel_prediction_std_value, goesxrs_ground_truth_value, biosentinel_ground_truth_value))
             
 
-def save_test_plot(context_dates, prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name, title=None):
+def save_test_plot(context_dates, prediction_dates, prediction_window_end, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, file_name, title=None):
     print('Saving test plot: {}'.format(file_name))
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
@@ -109,7 +109,7 @@ def save_test_plot(context_dates, prediction_dates, goesxrs_predictions, biosent
     ax.legend()
     ax.axvline(context_dates[0], color='black', linestyle='--', label='Context start')
     ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Context end / Prediction start')
-    ax.axvline(prediction_dates[-1], color='black', linestyle='--', label='Prediction end')
+    ax.axvline(prediction_window_end, color='black', linestyle='--', label='Prediction end')
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
@@ -128,7 +128,7 @@ def save_test_plot(context_dates, prediction_dates, goesxrs_predictions, biosent
     ax.legend()
     ax.axvline(context_dates[0], color='black', linestyle='--', label='Context start')
     ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Context end / Prediction start')
-    ax.axvline(prediction_dates[-1], color='black', linestyle='--', label='Prediction end')
+    ax.axvline(prediction_window_end, color='black', linestyle='--', label='Prediction end')
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     if title is not None:
@@ -182,6 +182,10 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
     prediction_date_start = context_end
     prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
+    prediction_window_end = prediction_date_start + datetime.timedelta(minutes=model.prediction_window*args.delta_minutes)
+
+    print('prediction_window', prediction_window)
+    print('model.prediction_window', model.prediction_window)
 
     goesxrs_predictions = prediction_batch[:, :, 0]
     biosentinel_predictions = prediction_batch[:, :, 1]
@@ -204,10 +208,10 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
     file_name = os.path.join(args.target_dir, file_prefix)
     test_file = file_name + '.csv'
-    save_test_file(context_dates, prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
+    save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
 
     test_plot_file = file_name + '.pdf'
-    save_test_plot(context_dates, prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
+    save_test_plot(context_dates, prediction_dates, prediction_window_end, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
 
 
 def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args):
@@ -396,7 +400,7 @@ def main():
             model_lstm_dim = 1024
             model_lstm_depth = args.lstm_depth
             model_dropout = 0.2
-            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout)
+            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=args.context_window, prediction_window=args.prediction_window)
             model = model.to(device)
             model.train()
 
