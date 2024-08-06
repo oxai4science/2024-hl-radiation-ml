@@ -8,9 +8,7 @@ import urllib.request
 from tqdm import tqdm
 from tqdm.contrib.concurrent import process_map
 
-https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2009/06/26JUN09.K7O.gz
-https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2009/10/19OCT09.K7O.gz
-https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2009/10/19OCT09.K7O.gz
+
 def process(file_names):
     remote_file_name, local_file_name = file_names
 
