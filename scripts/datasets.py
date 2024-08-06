@@ -291,7 +291,7 @@ class PandasDataset(Dataset):
 
 class GOESXRS(PandasDataset):
     def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
-        print('\nGOES XRS')
+        print('\nGOES X-ray Sensor (XRS)')
         print('File                 : {}'.format(file_name))
         delta_minutes = 1
 
@@ -302,7 +302,7 @@ class GOESXRS(PandasDataset):
 
         data = data[data['xrsb2_flux'] > 3e-8]
 
-        super().__init__('GOES XRS', data, 'xrsb2_flux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+        super().__init__('GOES X-ray Sensor (XRS)', data, 'xrsb2_flux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
 
     def normalize_data(self, data):
         data = torch.log(data + 1e-8)
@@ -318,6 +318,37 @@ class GOESXRS(PandasDataset):
         data = data * std_log_data
         data = data + mean_log_data
         data = torch.exp(data) - 1e-8
+        return data
+
+
+# Data units: particles / (cm^2 . s . sr)
+class GOESSGPS(PandasDataset):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+        print('\nGOES Solar and Galactic Proton Sensors (SGPS)')
+        print('File                 : {}'.format(file_name))
+        delta_minutes = 1
+
+        data = pd.read_csv(file_name)
+        data['datetime'] = pd.to_datetime(data['datetime'])
+        # data = data.sort_values(by='datetime')
+        print('Rows                 : {:,}'.format(len(data)))
+
+        data = data[data['AvgIntProtonFlux'] > 0]
+
+        super().__init__('GOES Solar and Galactic Proton Sensors (SGPS)', data, 'AvgIntProtonFlux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+
+    def normalize_data(self, data):
+        mean_data = 0.27067887783050537
+        std_data = 0.0848287045955658
+        data = data - mean_data
+        data = data / std_data
+        return data
+    
+    def unnormalize_data(self, data):
+        mean_data = 0.27067887783050537
+        std_data = 0.0848287045955658
+        data = data * std_data
+        data = data + mean_data
         return data
 
 

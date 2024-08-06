@@ -8,7 +8,7 @@ import torch
 import matplotlib
 import matplotlib.pyplot as plt
 
-from datasets import RadLab, SDOMLlite, GOESXRS
+from datasets import RadLab, SDOMLlite, GOESXRS, GOESSGPS
 
 
 matplotlib.use('Agg')
@@ -20,9 +20,11 @@ def main():
     parser.add_argument('--data_dir', type=str, required=True, help='Root directory with datasets')
     parser.add_argument('--sdo_dir', type=str, default='sdoml-lite-biosentinel', help='SDOML-lite-biosentinel directory')
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
-    parser.add_argument('--goes_xrs_file', type=str, default='goes-xrs/goes-xrs.csv', help='GOES XRS file')
+    parser.add_argument('--goes_xrs_file', type=str, default='goes/goes-xrs.csv', help='GOES XRS file')
+    parser.add_argument('--goes_sgps_file', type=str, default='goes/goes-sgps.csv', help='GOES SGPS file')
     parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to use')
-    parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'BPD', 'CRaTER-D1D2'], help='Instruments')
+    # parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'GOESSGPS', 'BPD', 'CRaTER-D1D2'], help='Instruments')
+    parser.add_argument('--instruments', nargs='+', default=['GOESSGPS'], help='Instruments')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     args = parser.parse_args()
@@ -44,6 +46,7 @@ def main():
     data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+    data_dir_goes_sgps = os.path.join(args.data_dir, args.goes_sgps_file)
 
 
     for instrument in args.instruments:
@@ -56,6 +59,11 @@ def main():
             runs = [ 
                 ('normalized', GOESXRS(data_dir_goes_xrs, normalize=True), 'xrsb2_flux (normalized)'),
                 ('unnormalized', GOESXRS(data_dir_goes_xrs, normalize=False), 'xrsb2_flux')
+            ]
+        elif instrument == 'GOESSGPS':
+            runs = [ 
+                ('normalized', GOESSGPS(data_dir_goes_sgps, normalize=True), 'AvgIntProtonFlux (normalized)'),
+                ('unnormalized', GOESSGPS(data_dir_goes_sgps, normalize=False), 'AvgIntProtonFlux')
             ]
         else:
             runs = [ 
