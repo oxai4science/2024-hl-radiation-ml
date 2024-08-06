@@ -192,21 +192,22 @@ class PandasDataset(Dataset):
             else:
                 print('End date out of range, using default')        
 
-        # if the date of the first row of data after self.date_start does not end in minutes :00, :15, :30, or :45, move forward to the next minute that does
-        time_out = 1000
-        while True:
-            first_row = self.data[self.data['datetime'] >= self.date_start].iloc[0]
-            first_row_date = first_row['datetime']
-            if first_row_date.minute % 15 != 0:
-                print('Adjust startdate(old): {}'.format(first_row_date))
-                first_row_date = first_row_date + datetime.timedelta(minutes=15 - (first_row_date.minute % 15))
-                print('Adjust startdate(new): {}'.format(first_row_date))
-                self.date_start = first_row_date
-                time_out -= 1
-                if time_out == 0:
-                    raise RuntimeError('Time out in adjusting start date for {}'.format(self.name))
-            else:
-                break
+        if not 'CRaTER' in self.name: # Very bad hack, need to fix this for CRaTER
+            # if the date of the first row of data after self.date_start does not end in minutes :00, :15, :30, or :45, move forward to the next minute that does
+            time_out = 1000
+            while True:
+                first_row = self.data[self.data['datetime'] >= self.date_start].iloc[0]
+                first_row_date = first_row['datetime']
+                if first_row_date.minute % 15 != 0:
+                    print('Adjust startdate(old): {}'.format(first_row_date))
+                    first_row_date = first_row_date + datetime.timedelta(minutes=15 - (first_row_date.minute % 15))
+                    print('Adjust startdate(new): {}'.format(first_row_date))
+                    self.date_start = first_row_date
+                    time_out -= 1
+                    if time_out == 0:
+                        raise RuntimeError('Time out in adjusting start date for {}'.format(self.name))
+                else:
+                    break
 
         # Filter out dates outside the range
         self.data = self.data[(self.data['datetime'] >=self.date_start) & (self.data['datetime'] <=self.date_end)]
@@ -349,22 +350,24 @@ class GOESSGPS(PandasDataset):
         # data = data.sort_values(by='datetime')
         print('Rows                 : {:,}'.format(len(data)))
 
-        data = data[data['AvgIntProtonFlux'] > 0]
+        data = data[data['AvgDiffProtonFlux'] > 0]
 
-        super().__init__('GOES Solar and Galactic Proton Sensors (SGPS)', data, 'AvgIntProtonFlux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+        super().__init__('GOES Solar and Galactic Proton Sensors (SGPS)', data, 'AvgDiffProtonFlux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
 
     def normalize_data(self, data):
-        mean_data = 0.27067887783050537
-        std_data = 0.0848287045955658
-        data = data - mean_data
-        data = data / std_data
+        data = torch.log(data + 1e-8)
+        mean_log_data = -6.167838096618652
+        std_log_data = 2.073496103286743
+        data = data - mean_log_data
+        data = data / std_log_data
         return data
     
     def unnormalize_data(self, data):
-        mean_data = 0.27067887783050537
-        std_data = 0.0848287045955658
-        data = data * std_data
-        data = data + mean_data
+        mean_log_data = -6.167838096618652
+        std_log_data = 2.073496103286743
+        data = data * std_log_data
+        data = data + mean_log_data
+        data = torch.exp(data) - 1e-8
         return data
 
 

@@ -12,7 +12,7 @@ import numpy as np
 from glob import glob
 
 
-def read_goes_sgps(file_name, column='AvgIntProtonFlux'):
+def read_goes_sgps(file_name, column='AvgDiffProtonFlux'):
     ds = xr.open_dataset(file_name)
     df = ds.to_dataframe()
     if 'v1-0-1' in file_name or 'v2-0-0' in file_name:
@@ -26,7 +26,7 @@ def read_goes_sgps(file_name, column='AvgIntProtonFlux'):
     return dates, values
 
 
-def read_goes_sgps_dataset(source_dir, column='AvgIntProtonFlux'):
+def read_goes_sgps_dataset(source_dir, column='AvgDiffProtonFlux'):
     files = sorted(glob(os.path.join(source_dir, '**', '*.nc'), recursive=True))
     dates = []
     values = []
@@ -44,7 +44,7 @@ def main():
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--source_dir', type=str, help='Source directory', required=True)
     parser.add_argument('--target_file', type=str, help='Target directory', required=True)
-    parser.add_argument('--column', type=str, default='AvgIntProtonFlux', help='Column name')
+    parser.add_argument('--column', type=str, default='AvgDiffProtonFlux', help='Column name')
     
     args = parser.parse_args()
 

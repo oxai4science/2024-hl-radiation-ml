@@ -25,7 +25,7 @@ def main():
     parser.add_argument('--rstn_radio_file', type=str, default='rstn-radio/rstn-radio.csv', help='RSTN Radio file')
     parser.add_argument('--num_samples', type=int, default=1000, help='Number of samples to use')
     parser.add_argument('--instruments', nargs='+', default=['SDOML-lite', 'GOESXRS', 'GOESSGPS', 'RSTNRadio', 'BPD', 'CRaTER-D1D2'], help='Instruments')
-    # parser.add_argument('--instruments', nargs='+', default=['RSTNRadio'], help='Instruments')
+    # parser.add_argument('--instruments', nargs='+', default=['GOESSGPS'], help='Instruments')
     parser.add_argument('--seed', type=int, default=0, help='Random seed')
 
     args = parser.parse_args()
@@ -64,8 +64,8 @@ def main():
             ]
         elif instrument == 'GOESSGPS':
             runs = [ 
-                ('normalized', GOESSGPS(data_dir_goes_sgps, normalize=True), 'AvgIntProtonFlux (normalized)'),
-                ('unnormalized', GOESSGPS(data_dir_goes_sgps, normalize=False), 'AvgIntProtonFlux')
+                ('normalized', GOESSGPS(data_dir_goes_sgps, normalize=True), 'AvgDiffProtonFlux (normalized)'),
+                ('unnormalized', GOESSGPS(data_dir_goes_sgps, normalize=False), 'AvgDiffProtonFlux')
             ]
         elif instrument == 'RSTNRadio':
             runs = [ 

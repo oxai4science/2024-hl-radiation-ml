@@ -122,7 +122,7 @@ def main():
         sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=date_start, date_end=date_end)
         biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
         crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
-        # goessgps = GOESSGPS(data_dir_goes_sgps, normalize=False)
+        goessgps = GOESSGPS(data_dir_goes_sgps, normalize=False)
         # rstnradio = RSTNRadio(data_dir_rstn_radio, normalize=False)
         goesxrs = GOESXRS(data_dir_goes_xrs, normalize=False)
 
@@ -131,9 +131,9 @@ def main():
         fig, axs = plt.subplot_mosaic([['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'],
                                     ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
                                     ['crater', 'crater', 'crater', 'crater', 'crater', 'crater'],
-                                    # ['rstnradio', 'rstnradio', 'rstnradio', 'rstnradio', 'rstnradio', 'rstnradio'],
+                                    ['goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps'],
                                     ['goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs']
-                                    ], figsize=(20, 10), height_ratios=[2, 1, 1, 1])
+                                    ], figsize=(20, 10), height_ratios=[2, 1, 1, 1, 1])
 
         vmin = {}
         vmax = {}
@@ -187,6 +187,23 @@ def main():
         # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
         ims['crater'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
+        ax = axs['goessgps']
+        ax.set_title('GOES SGPS')
+        ax.set_ylabel('Proton flux\n[particles / (cm^2 . s . sr)]')
+        ax.yaxis.set_label_position("right")
+        goes_dates, goes_values = goessgps.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        if goes_dates is not None:
+            ax.plot(goes_dates, goes_values, color='purple', alpha=0.75)
+        # ax.tick_params(rotation=45)
+        ax.set_xticks(axs['biosentinel'].get_xticks())
+        ax.set_xlim(axs['biosentinel'].get_xlim())
+        ax.grid(color='#f0f0f0', zorder=0)
+        ax.set_yscale('log')
+        myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
+        ax.xaxis.set_major_formatter(myFmt)
+        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
+        ims['goessgps'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+
         ax = axs['goesxrs']
         ax.set_title('GOES XRS')
         ax.set_ylabel('X-ray flux\n[W/m^2]')
@@ -217,6 +234,7 @@ def main():
                 ims['biosentinel'].set_xdata([date, date])
                 ims['crater'].set_xdata([date, date])
                 # ims['rstnradio'].set_xdata([date, date])
+                ims['goessgps'].set_xdata([date, date])
                 ims['goesxrs'].set_xdata([date, date])
 
                 sdo_data, _ = sdo[date]
