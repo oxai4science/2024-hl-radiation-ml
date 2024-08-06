@@ -210,9 +210,10 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
 
     full_start = date_start - datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
     full_end = date_end
-    time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
     dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=full_start, date_end=date_end)
     dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=full_start, date_end=date_end)
+    full_start = max(dataset_goes_xrs.date_start, dataset_biosentinel.date_start) # need to reassign because data availability may change the start date
+    time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
     dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
 
     full_sequence = dataset_sequences[0]
