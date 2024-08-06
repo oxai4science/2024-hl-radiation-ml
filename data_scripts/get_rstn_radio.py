@@ -27,18 +27,17 @@ def process(file_names):
             return True
         except Exception as e:
             print('Error: {}'.format(e))
-            # raise RuntimeError('Error downloading file: {}'.format(remote_file_name))
     if os.path.exists(local_file_name):
         os.remove(local_file_name)
     return False
 
 
 def main():
-    description = 'FDL-X 2024, Radiation Team, GOES solar and galactic proton sensors (SGPS) data downloader'
+    description = 'FDL-X 2024, Radiation Team, Radio Solar Telescope Network (RSTN) Solar Radio Burst data downloader'
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--date_start', type=str, default='2020-11-01', help='Start date')
+    parser.add_argument('--date_start', type=str, default='2017-02-07', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-07-29', help='End date')
-    parser.add_argument('--remote_root', type=str, default='https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/data/sgps-l2-avg1m/', help='Remote root')
+    parser.add_argument('--remote_root', type=str, default='https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/', help='Remote root')
     parser.add_argument('--target_dir', type=str, help='Local root', required=True)
     parser.add_argument('--max_workers', type=int, default=1, help='Max workers')
     parser.add_argument('--worker_chunk_size', type=int, default=1, help='Chunk size per worker')
@@ -62,24 +61,13 @@ def main():
 
     file_names = []
     while current < date_end:
-        # Sample URLs, formats change depending on date
-        # 2020-11-1 to 2021-08-15   dn_sgps-l2-avg1m_g16_d20201101_v1-0-1.nc
-        # 2021-08-16 to 2022-04-30  dn_sgps-l2-avg1m_g16_d20210823_v2-0-0.nc	
-        # 2022-05-01 to 2023-03-31 sci_sgps-l2-avg1m_g16_d20220501_v3-0-0.nc
-        # 2023-04-01 to 2023-10-18 sci_sgps-l2-avg1m_g16_d20230501_v3-0-1.nc
-        # 2023-10-19 to 2024-08-04 sci_sgps-l2-avg1m_g16_d20231031_v3-0-2.nc
+        # Sample URL
+        # https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2023/01/08jan23.k7o.gz
 
-        if current < datetime.datetime(2021, 8, 16):
-            file_name = 'dn_sgps-l2-avg1m_g16_d{:%Y%m%d}_v1-0-1.nc'.format(current)
-        elif current < datetime.datetime(2022, 5, 1):
-            file_name = 'dn_sgps-l2-avg1m_g16_d{:%Y%m%d}_v2-0-0.nc'.format(current)
-        elif current < datetime.datetime(2023, 4, 1):
-            file_name = 'sci_sgps-l2-avg1m_g16_d{:%Y%m%d}_v3-0-0.nc'.format(current)
-        elif current < datetime.datetime(2023, 10, 19):
-            file_name = 'sci_sgps-l2-avg1m_g16_d{:%Y%m%d}_v3-0-1.nc'.format(current)
-        else:
-            file_name = 'sci_sgps-l2-avg1m_g16_d{:%Y%m%d}_v3-0-2.nc'.format(current)
-
+        file_name = '{:%d%b%y}.k7o'.format(current).lower()
+        if current.year < 2020:
+            file_name = file_name.upper()
+        file_name = file_name + '.gz'
         remote_file_name = os.path.join(args.remote_root, '{:%Y/%m}'.format(current), file_name)
         local_file_name = os.path.join(args.target_dir, '{:%Y/%m}'.format(current), file_name)
         file_names.append((remote_file_name, local_file_name))

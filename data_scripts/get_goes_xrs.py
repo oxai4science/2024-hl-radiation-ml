@@ -33,7 +33,7 @@ def process(file_names):
 
 
 def main():
-    description = 'FDL-X 2024, Radiation Team, GOES XRS data downloader'
+    description = 'FDL-X 2024, Radiation Team, GOES X-ray Sensor (XRS) data downloader'
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument('--date_start', type=str, default='2017-02-07', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-07-29', help='End date')
@@ -61,7 +61,7 @@ def main():
 
     file_names = []
     while current < date_end:
-        # Sample URL, the last suffix is the wavelength
+        # Sample URL
         # https://data.ngdc.noaa.gov/platforms/solar-space-observing-satellites/goes/goes16/l2/data/xrsf-l2-avg1m_science/2024/07/sci_xrsf-l2-avg1m_g16_d20240701_v2-2-0.nc
 
         file_name = 'sci_xrsf-l2-avg1m_g16_d{:%Y%m%d}_v2-2-0.nc'.format(current)
