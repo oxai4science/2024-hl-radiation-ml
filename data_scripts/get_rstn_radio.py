@@ -58,11 +58,12 @@ def main():
     date_end = datetime.datetime.fromisoformat(args.date_end)
 
     current = date_start
-
+https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2010/07/25JUL10.K7O.gz
     file_names = []
     while current < date_end:
         # Sample URL
         # https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2023/01/08jan23.k7o.gz
+        # https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2010/05/05MAY10.K7O.gz
         # 2009: up
         # 2010: up
         # 2011: up
