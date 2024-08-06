@@ -35,7 +35,7 @@ def process(file_names):
 def main():
     description = 'FDL-X 2024, Radiation Team, Radio Solar Telescope Network (RSTN) Solar Radio Burst data downloader'
     parser = argparse.ArgumentParser(description=description)
-    parser.add_argument('--date_start', type=str, default='2017-02-07', help='Start date')
+    parser.add_argument('--date_start', type=str, default='2009-06-26', help='Start date') # Available from 1981-10-10, but we start from 2009-06-26, beginning of CRaTER data
     parser.add_argument('--date_end', type=str, default='2024-07-29', help='End date')
     parser.add_argument('--remote_root', type=str, default='https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/', help='Remote root')
     parser.add_argument('--target_dir', type=str, help='Local root', required=True)
