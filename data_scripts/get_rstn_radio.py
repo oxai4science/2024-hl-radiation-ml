@@ -63,11 +63,31 @@ def main():
     while current < date_end:
         # Sample URL
         # https://www.ngdc.noaa.gov/stp/space-weather/solar-data/solar-features/solar-radio/rstn-1-second/sagamore-hill/2023/01/08jan23.k7o.gz
+        # 2009: up
+        # 2010: up
+        # 2011: up
+        # 2012: up
+        # 2013: down
+        # 2014: down
+        # 2015: down
+        # 2016: down
+        # 2017: up
+        # 2018: up
+        # 2019: up
+        # 2020: down
+        # 2021: down
+        # 2022: down
+        # 2023: down
+        # 2024: down
 
-        file_name = '{:%d%b%y}.k7o'.format(current).lower()
-        if current.year < 2020:
-            file_name = file_name.upper()
-        file_name = file_name + '.gz'
+        file_name_down = '{:%d%b%y}.k7o'.format(current).lower() + '.gz'
+        file_name_up   = '{:%d%b%y}.k7o'.format(current).upper() + '.gz'
+
+        if current.year in [2009, 2010, 2011, 2012, 2017, 2018, 2019]:
+            file_name = file_name_up
+        else:
+            file_name = file_name_down
+
         remote_file_name = os.path.join(args.remote_root, '{:%Y/%m}'.format(current), file_name)
         local_file_name = os.path.join(args.target_dir, '{:%Y/%m}'.format(current), file_name)
         file_names.append((remote_file_name, local_file_name))
