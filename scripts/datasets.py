@@ -192,6 +192,22 @@ class PandasDataset(Dataset):
             else:
                 print('End date out of range, using default')        
 
+        # if the date of the first row of data after self.date_start does not end in minutes :00, :15, :30, or :45, move forward to the next minute that does
+        time_out = 1000
+        while True:
+            first_row = self.data[self.data['datetime'] >= self.date_start].iloc[0]
+            first_row_date = first_row['datetime']
+            if first_row_date.minute % 15 != 0:
+                print('Adjust startdate(old): {}'.format(first_row_date))
+                first_row_date = first_row_date + datetime.timedelta(minutes=15 - (first_row_date.minute % 15))
+                print('Adjust startdate(new): {}'.format(first_row_date))
+                self.date_start = first_row_date
+                time_out -= 1
+                if time_out == 0:
+                    raise RuntimeError('Time out in adjusting start date for {}'.format(self.name))
+            else:
+                break
+
         # Filter out dates outside the range
         self.data = self.data[(self.data['datetime'] >=self.date_start) & (self.data['datetime'] <=self.date_end)]
 

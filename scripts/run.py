@@ -156,6 +156,12 @@ def predict(model, date_start, date_end, args):
     dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window)
 
     context_sequence = dataset_sequences[0]
+    context_sequence_start = context_sequence[2][0]
+    context_sequence_end = context_sequence[2][-1]
+
+    print('date_start      : {}'.format(date_start))
+    print('context start   : {}'.format(context_sequence_start))
+    print('context end     : {}'.format(context_sequence_end))
 
     context_goesxrs = context_sequence[0][:args.context_window].unsqueeze(1)
     context_biosentinel = context_sequence[1][:args.context_window].unsqueeze(1)
@@ -168,6 +174,10 @@ def predict(model, date_start, date_end, args):
 
     prediction_date_start = datetime.datetime.fromisoformat(context_sequence[2][-1])
     prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
+    prediction_date_start = prediction_dates[0]
+    prediction_date_end = prediction_dates[-1]
+    print('prediction start: {}'.format(prediction_date_start))
+    print('prediction end  : {}'.format(prediction_date_end))
 
     goesxrs_predictions = prediction_batch[:, :, 0]
     biosentinel_predictions = prediction_batch[:, :, 1]
@@ -305,8 +315,8 @@ def main():
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--goes_sgps_file', type=str, default='goes/goes-sgps.csv', help='GOES SGPS file')
-    parser.add_argument('--context_window', type=int, default=3, help='Context window')
-    parser.add_argument('--prediction_window', type=int, default=4, help='Prediction window')
+    parser.add_argument('--context_window', type=int, default=40, help='Context window')
+    parser.add_argument('--prediction_window', type=int, default=40, help='Prediction window')
     parser.add_argument('--num_samples', type=int, default=20, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')

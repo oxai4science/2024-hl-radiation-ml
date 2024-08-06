@@ -12,7 +12,7 @@ import sunpy.visualization.colormaps as sunpycm
 
 from tqdm import tqdm
 
-from datasets import SDOMLlite, RadLab, GOESXRS, GOESSGPS
+from datasets import SDOMLlite, RadLab, GOESXRS, GOESSGPS, RSTNRadio
 from events import EventCatalog
 
 matplotlib.use('Agg')
@@ -55,6 +55,7 @@ def main():
     parser.add_argument('--radlab_file', type=str, default='radlab/RadLab-20240625-duck.db', help='RadLab file')
     parser.add_argument('--goes_xrs_file', type=str, default='goes/goes-xrs.csv', help='GOES XRS file')
     parser.add_argument('--goes_sgps_file', type=str, default='goes/goes-sgps.csv', help='GOES SGPS file')
+    parser.add_argument('--rstn_radio_file', type=str, default='rstn-radio/rstn-radio.csv', help='RSTN Radio file')    
     parser.add_argument('--date_start', type=str, default='2023-02-25 06:15:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2023-02-28 01:40:00', help='End date')
     parser.add_argument('--sequence_length', type=int, default=20, help='Sequence length')
@@ -79,6 +80,7 @@ def main():
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
     data_dir_goes_sgps = os.path.join(args.data_dir, args.goes_sgps_file)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
+    # data_dir_rstn_radio = os.path.join(args.data_dir, args.rstn_radio_file)
 
     minutes_before_start = args.sequence_length * args.delta_minutes
     
@@ -120,7 +122,8 @@ def main():
         sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=date_start, date_end=date_end)
         biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
         crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
-        goessgps = GOESSGPS(data_dir_goes_sgps, normalize=False)
+        # goessgps = GOESSGPS(data_dir_goes_sgps, normalize=False)
+        # rstnradio = RSTNRadio(data_dir_rstn_radio, normalize=False)
         goesxrs = GOESXRS(data_dir_goes_xrs, normalize=False)
 
         file_name = os.path.join(args.target_dir, file_name)
@@ -128,9 +131,9 @@ def main():
         fig, axs = plt.subplot_mosaic([['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'],
                                     ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
                                     ['crater', 'crater', 'crater', 'crater', 'crater', 'crater'],
-                                    ['goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps'],
+                                    # ['rstnradio', 'rstnradio', 'rstnradio', 'rstnradio', 'rstnradio', 'rstnradio'],
                                     ['goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs']
-                                    ], figsize=(20, 10), height_ratios=[2, 1, 1, 1, 1])
+                                    ], figsize=(20, 10), height_ratios=[2, 1, 1, 1])
 
         vmin = {}
         vmax = {}
@@ -184,24 +187,6 @@ def main():
         # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
         ims['crater'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
-        ax = axs['goessgps']
-        ax.set_title('GOES SGPS')
-        ax.set_ylabel('Proton flux\n[Protons/(cm^2 s-1 sr-1)]')
-        ax.yaxis.set_label_position("right")
-        goessgps_dates, goessgps_values = goessgps.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-        if goessgps_dates is not None:
-            ax.plot(goessgps_dates, goessgps_values, color='red', alpha=0.75)
-        # ax.tick_params(rotation=45)
-        ax.set_xticks(axs['biosentinel'].get_xticks())
-        ax.set_xlim(axs['biosentinel'].get_xlim())
-        ax.set_xticklabels([])
-        ax.grid(color='#f0f0f0', zorder=0)
-        ax.set_yscale('log')
-        # myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
-        # ax.xaxis.set_major_formatter(myFmt)
-        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-        ims['goessgps'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
-
         ax = axs['goesxrs']
         ax.set_title('GOES XRS')
         ax.set_ylabel('X-ray flux\n[W/m^2]')
@@ -231,7 +216,7 @@ def main():
                 title.set_text(title_prefix + str(date))
                 ims['biosentinel'].set_xdata([date, date])
                 ims['crater'].set_xdata([date, date])
-                ims['goessgps'].set_xdata([date, date])
+                # ims['rstnradio'].set_xdata([date, date])
                 ims['goesxrs'].set_xdata([date, date])
 
                 sdo_data, _ = sdo[date]
