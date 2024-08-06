@@ -138,6 +138,8 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
 
 def run_model(model, context, prediction_window):
     batch_size = context.shape[0]
+    # context_length = context.shape[1]
+    # print('Running model with context shape: {}'.format(context.shape))
     model.init(batch_size)
     context_input = context
     prediction = [context_input[:, -1, :].unsqueeze(1)] # prepend the prediction values with the last context input
@@ -152,16 +154,15 @@ def run_model(model, context, prediction_window):
 
 def run_test(model, date_start, date_end, file_prefix, title, args):
     # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
-    # date_end = datetime.datetime.fromisoformat('2023-02-25T07:15:00')
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
     # predict start
 
-    context_start = date_start - datetime.timedelta(minutes=(args.context_window - 1) * args.delta_minutes)
+    context_start = date_start - datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
     dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=context_start, date_end=date_end)
     dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=context_start, date_end=date_end)
-    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.context_window)
+    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=model.context_window)
 
     context_sequence = dataset_sequences[0]
     context_dates = [datetime.datetime.fromisoformat(d) for d in context_sequence[2]]
@@ -172,8 +173,8 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
     prediction_window = int((date_end - context_end).total_seconds() / (args.delta_minutes * 60))
 
-    context_goesxrs = context_sequence[0][:args.context_window].unsqueeze(1).to(args.device)
-    context_biosentinel = context_sequence[1][:args.context_window].unsqueeze(1).to(args.device)
+    context_goesxrs = context_sequence[0][:model.context_window].unsqueeze(1).to(args.device)
+    context_biosentinel = context_sequence[1][:model.context_window].unsqueeze(1).to(args.device)
     context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
     context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
     prediction_batch = run_model(model, context_batch, prediction_window).detach()
@@ -194,7 +195,6 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
     goesxrs_ground_truth_values = dataset_goes_xrs.unnormalize_data(goesxrs_ground_truth_values)
     biosentinel_ground_truth_values = dataset_biosentinel.unnormalize_data(biosentinel_ground_truth_values)
 
-
     file_name = os.path.join(args.target_dir, file_prefix)
     test_file = file_name + '.csv'
     save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
@@ -204,13 +204,34 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
 
 def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args):
+    # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
-    dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=date_start, date_end=date_end, normalize=False)
-    dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=date_start, date_end=date_end, normalize=False)
-    goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-    biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+    full_start = date_start - datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
+    full_end = date_end
+    time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
+    dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=full_start, date_end=date_end)
+    dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=full_start, date_end=date_end)
+    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
+
+    full_sequence = dataset_sequences[0]
+    full_dates = [datetime.datetime.fromisoformat(d) for d in full_sequence[2]]
+    if full_start != full_dates[0]:
+        print('full start adjusted from {} to {} (due to data availability)'.format(full_start, full_dates[0]))
+    full_start = full_dates[0]
+
+    context_start = full_start
+    context_end = context_start + datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
+    prediction_start = context_end
+    prediction_end = full_end
+    training_prediction_end = prediction_start + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
+
+    goesxrs_ground_truth_dates, goesxrs_ground_truth_values = dataset_goes_xrs.get_series(full_start, full_end, delta_minutes=args.delta_minutes)
+    biosentinel_ground_truth_dates, biosentinel_ground_truth_values = dataset_biosentinel.get_series(full_start, full_end, delta_minutes=args.delta_minutes)
+    goesxrs_ground_truth_values = dataset_goes_xrs.unnormalize_data(goesxrs_ground_truth_values)
+    biosentinel_ground_truth_values = dataset_biosentinel.unnormalize_data(biosentinel_ground_truth_values)
+
 
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
@@ -227,7 +248,9 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-    ims['biosentinel'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+    ims['biosentinel_context_start'] = ax.axvline(context_start, color='black', linestyle='--', label='Context start')
+    ims['biosentinel_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', label='Context end / Prediction start')
+    ims['biosentinel_training_prediction_end'] = ax.axvline(training_prediction_end, color='black', linestyle='--', label='Prediction end')
     # prediction plots
     for i in range(args.num_samples):
         ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
@@ -245,27 +268,52 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-    ims['goesxrs'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+    ims['goesxrs_context_start'] = ax.axvline(context_start, color='black', linestyle='--', label='Context start')
+    ims['goesxrs_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', label='Context end / Prediction start')
+    ims['goesxrs_training_prediction_end'] = ax.axvline(training_prediction_end, color='black', linestyle='--', label='Prediction end')
     # prediction plots
     for i in range(args.num_samples):
         ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
         
 
-    title = plt.suptitle(title_prefix + str(date_start))
+    title = plt.suptitle(title_prefix + str(prediction_start))
 
-    num_frames = int(((date_end - date_start).total_seconds() / 60) / args.delta_minutes) + 1
+    # num_frames = int(((full_end - prediction_start).total_seconds() / 60) / args.delta_minutes) + 1
+    num_frames = len(full_dates) - model.context_window
 
     with tqdm(total=num_frames) as pbar:
-        def run(frame):
-            date = date_start + datetime.timedelta(minutes=frame*args.delta_minutes)
+        def run(i):
+            context_start = full_dates[i]
+            context_end = full_dates[i + model.context_window - 1]
+            prediction_start = context_end
+            training_prediction_end = prediction_start + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
+            prediction_end = full_dates[-1]
+            prediction_window = num_frames - i*model.context_window
+            date = prediction_start
             pbar.set_description('Frame {}'.format(date))
             pbar.update(1)
 
-            title.set_text(title_prefix + str(date))
-            ims['biosentinel'].set_xdata([date, date])
-            ims['goesxrs'].set_xdata([date, date])
+            title.set_text(title_prefix + str(prediction_start))
+            ims['biosentinel_context_start'].set_xdata([context_start, context_start])
+            ims['biosentinel_prediction_start'].set_xdata([prediction_start, prediction_start])
+            ims['biosentinel_training_prediction_end'].set_xdata([training_prediction_end, training_prediction_end])
+            ims['goesxrs_context_start'].set_xdata([context_start, context_start])
+            ims['goesxrs_prediction_start'].set_xdata([prediction_start, prediction_start])
+            ims['goesxrs_training_prediction_end'].set_xdata([training_prediction_end, training_prediction_end])
 
-            prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
+            context_goesxrs = full_sequence[0][i:i+model.context_window].unsqueeze(1).to(args.device)
+            context_biosentinel = full_sequence[1][i:i+model.context_window].unsqueeze(1).to(args.device)
+            context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
+            context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
+            prediction_batch = run_model(model, context_batch, prediction_window).detach()
+            goesxrs_predictions = prediction_batch[:, :, 0]
+            biosentinel_predictions = prediction_batch[:, :, 1]
+            goesxrs_predictions = dataset_goes_xrs.unnormalize_data(goesxrs_predictions).cpu().numpy()
+            biosentinel_predictions = dataset_biosentinel.unnormalize_data(biosentinel_predictions).cpu().numpy()
+            prediction_dates = [prediction_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
+
+            print(len(prediction_dates), len(goesxrs_predictions[0]), len(biosentinel_predictions[0]), prediction_window)
+            # prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
 
             for i in range(args.num_samples):
                 ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
@@ -497,7 +545,7 @@ def main():
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
                         run_test(model, date_start, date_end, file_prefix, title, args)
-                        # run_test_video(model, date_start, date_end, file_prefix, title, args)
+                        run_test_video(model, date_start, date_end, file_prefix, title, args)
 
                 if args.test_seen_event_id is not None:
                     for event_id in args.test_seen_event_id:
@@ -515,8 +563,8 @@ def main():
             print('\n*** Testing mode\n')
 
             checkpoint = torch.load(args.model_file)
-            model_context_window = checkpoint['context_window']
-            model_prediction_window = checkpoint['prediction_window']
+            model_context_window = checkpoint['model_context_window']
+            model_prediction_window = checkpoint['model_prediction_window']
             model_data_dim = checkpoint['model_data_dim']
             model_lstm_dim = checkpoint['model_lstm_dim']
             model_lstm_depth = checkpoint['model_lstm_depth']
@@ -557,6 +605,7 @@ def main():
 
             for date_start, date_end, file_prefix, title in tests_to_run:
                 run_test(model, date_start, date_end, file_prefix, title, args)
+                run_test_video(model, date_start, date_end, file_prefix, title, args)
 
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
