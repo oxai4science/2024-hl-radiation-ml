@@ -14,7 +14,7 @@ def process(file_names):
 
     print('Remote: {}'.format(remote_file_name), flush=True)
     os.makedirs(os.path.dirname(local_file_name), exist_ok=True)
-    timeout = 5 # seconds
+    timeout = 15 # seconds
     retries = 5
     for i in range(retries):
         if i > 0:
