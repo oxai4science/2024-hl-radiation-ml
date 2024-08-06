@@ -12,7 +12,7 @@ import numpy as np
 from glob import glob
 
 
-def read_goes_xrs(file_name, column='xrsb2_flux'):
+def read_goes_xrs(file_name, column='AvgIntProtonFlux'):
     ds = xr.open_dataset(file_name)
     df = ds.to_dataframe()
     df = df.iloc[::4, :]
@@ -24,7 +24,7 @@ def read_goes_xrs(file_name, column='xrsb2_flux'):
     return dates, values
 
 
-def read_goes_xrs_dataset(source_dir, column='xrsb2_flux'):
+def read_goes_xrs_dataset(source_dir, column='AvgIntProtonFlux'):
     files = sorted(glob(os.path.join(source_dir, '**', '*.nc'), recursive=True))
     dates = []
     values = []
