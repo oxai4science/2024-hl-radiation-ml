@@ -284,11 +284,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     with tqdm(total=num_frames) as pbar:
         def run(i):
             context_start = full_dates[i]
-            context_end = full_dates[i + model.context_window - 1]
+            context_end = full_dates[i + model.context_window]
             prediction_start = context_end
             training_prediction_end = prediction_start + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
             prediction_end = full_dates[-1]
-            prediction_window = num_frames - i*model.context_window
+            prediction_window = num_frames - i
             date = prediction_start
             pbar.set_description('Frame {}'.format(date))
             pbar.update(1)
@@ -312,7 +312,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
             biosentinel_predictions = dataset_biosentinel.unnormalize_data(biosentinel_predictions).cpu().numpy()
             prediction_dates = [prediction_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
 
-            print(len(prediction_dates), len(goesxrs_predictions[0]), len(biosentinel_predictions[0]), prediction_window)
+            # print(len(prediction_dates), len(goesxrs_predictions[0]), len(biosentinel_predictions[0]), prediction_window)
             # prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
 
             for i in range(args.num_samples):
@@ -558,6 +558,7 @@ def main():
                         file_prefix = 'epoch-{:03d}-test-seen-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
                         run_test(model, date_start, date_end, file_prefix, title, args)
+                        run_test_video(model, date_start, date_end, file_prefix, title, args)
 
         if args.mode == 'test':
             print('\n*** Testing mode\n')
