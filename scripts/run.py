@@ -361,7 +361,7 @@ def main():
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
     parser.add_argument('--seed', type=int, default=0, help='Random number generator seed')
     parser.add_argument('--epochs', type=int, default=100, help='Number of epochs')
-    parser.add_argument('--lr', type=float, default=1e-05, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.0001, help='Learning rate')
     parser.add_argument('--weight_decay', type=float, default=0, help='Weight decay')
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
@@ -540,7 +540,7 @@ def main():
                         if event_id not in EventCatalog:
                             raise ValueError('Event ID not found in events: {}'.format(event_id))
                         date_start, date_end, max_pfu = EventCatalog[event_id]
-                        print('Event ID: {}'.format(event_id))
+                        print('\nEvent ID: {}'.format(event_id))
                         date_start = datetime.datetime.fromisoformat(date_start)
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
@@ -553,7 +553,7 @@ def main():
                         if event_id not in EventCatalog:
                             raise ValueError('Event ID not found in events: {}'.format(event_id))
                         date_start, date_end, max_pfu = EventCatalog[event_id]
-                        print('Event ID: {}'.format(event_id))
+                        print('\nEvent ID: {}'.format(event_id))
                         date_start = datetime.datetime.fromisoformat(date_start)
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-seen-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
@@ -587,7 +587,7 @@ def main():
                     if event_id not in EventCatalog:
                         raise ValueError('Event ID not found in events: {}'.format(event_id))
                     date_start, date_end, max_pfu = EventCatalog[event_id]
-                    print('Event ID: {}'.format(event_id))
+                    print('\nEvent ID: {}'.format(event_id))
 
                     date_start = datetime.datetime.fromisoformat(date_start)
                     date_end = datetime.datetime.fromisoformat(date_end)
