@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, random_split
 import torch.optim as optim
 import matplotlib
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+import matplotlib.dates
 from tqdm import tqdm
 import shutil
 import traceback
@@ -138,6 +138,7 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     prediction_alpha = 0.1
 
     ylims = {}
+    hours_locator = matplotlib.dates.HourLocator(interval=1)
 
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
@@ -148,9 +149,10 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     for i in range(num_samples):
         label = 'Prediction (samples)' if i == 0 else None
         ax.plot(prediction_dates, biosentinel_predictions[i], label=label, color='gray', alpha=prediction_alpha)
-    ax.grid(color='#f0f0f0', zorder=0)
+    ax.xaxis.set_minor_locator(hours_locator)
+    ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+    ax.grid(color='lightgray', zorder=0, which='major')
     ax.set_xticklabels([])
-    ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')    
     ax.axvline(context_dates[0], color='gray', linestyle='--', linewidth=1)
     ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
@@ -167,12 +169,15 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     for i in range(num_samples):
         label = 'Prediction (samples)' if i == 0 else None
         ax.plot(prediction_dates, goesxrs_predictions[i], label=label, color='gray', alpha=prediction_alpha)
-    ax.grid(color='#f0f0f0', zorder=0)
+    ax.xaxis.set_minor_locator(hours_locator)
+    ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+    ax.grid(color='lightgray', zorder=0, which='major')
+    # ax.set_xticklabels([])
     ax.set_yscale('log')
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
-    myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
-    ax.xaxis.set_major_formatter(myFmt)
+    major_formatter = matplotlib.dates.DateFormatter('%Y-%m-%d %H:%M')
+    ax.xaxis.set_major_formatter(major_formatter)
     ax.axvline(context_dates[0], color='gray', linestyle='--', linewidth=1)
     ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
     ax.axvline(training_prediction_window_end, color='gray', linestyle='--', linewidth=1)
@@ -292,16 +297,19 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     prediction_alpha = 0.1
     prediction_mean_alpha = 0.7
 
+    hours_locator = matplotlib.dates.HourLocator(interval=1)
+
     ims = {}
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
     ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
     ax.yaxis.set_label_position("right")
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', alpha=0.75, label='Ground truth')
-    # ax.tick_params(rotation=45)
+    ax.xaxis.set_minor_locator(hours_locator)
+    ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+    ax.grid(color='#f0f0f0', zorder=0, which='major')
     ax.set_xticklabels([])
-    ax.grid(color='#f0f0f0', zorder=0)
-    ax.set_yscale('log')
+    ax.set_yscale('log')    
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
     ims['biosentinel_context_start'] = ax.axvline(context_start, color='gray', linestyle='--', linewidth=1) # Context start
     ims['biosentinel_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', linewidth=1) # Context end / Prediction start
@@ -322,9 +330,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     # ax.tick_params(rotation=45)
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
-    ax.grid(color='#f0f0f0', zorder=0)
+    ax.xaxis.set_minor_locator(hours_locator)
+    ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+    ax.grid(color='#f0f0f0', zorder=0, which='major')
     ax.set_yscale('log')
-    myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
+    myFmt = matplotlib.dates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
     ims['goesxrs_context_start'] = ax.axvline(context_start, color='gray', linestyle='--', linewidth=1) # Context start
