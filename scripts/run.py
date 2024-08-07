@@ -277,7 +277,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
         ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
         
 
-    title = plt.suptitle(title_prefix + str(prediction_start))
+    title = plt.suptitle(title_prefix + ' ' + str(prediction_start))
 
     # num_frames = int(((full_end - prediction_start).total_seconds() / 60) / args.delta_minutes) + 1
     num_frames = len(full_dates) - model.context_window
