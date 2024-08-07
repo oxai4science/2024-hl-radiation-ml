@@ -345,26 +345,23 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
 
     with tqdm(total=num_frames) as pbar:
         def run(i):
-            context_start = full_dates[i]
-            context_end = full_dates[i + model.context_window-1]
+            context_start = i # sliding context
+            # context_start = 0 # full context
+            context_end = i + model.context_window - 1
+
+            # context_window = context_end - context_start + 1
             prediction_start = context_end
-            training_prediction_end = prediction_start + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
-            prediction_end = full_dates[-1]
-            prediction_window = num_frames - i + 1
-            date = prediction_start
-            pbar.set_description('Frame {}'.format(date))
-            pbar.update(1)
+            # prediction_end = len(full_dates) - 1
+            prediction_window = num_frames - i + 1        
 
-            title.set_text(title_prefix + ' ' + str(prediction_start))
-            ims['biosentinel_context_start'].set_xdata([context_start, context_start])
-            ims['biosentinel_prediction_start'].set_xdata([prediction_start, prediction_start])
-            ims['biosentinel_training_prediction_end'].set_xdata([training_prediction_end, training_prediction_end])
-            ims['goesxrs_context_start'].set_xdata([context_start, context_start])
-            ims['goesxrs_prediction_start'].set_xdata([prediction_start, prediction_start])
-            ims['goesxrs_training_prediction_end'].set_xdata([training_prediction_end, training_prediction_end])
+            context_start_date = full_dates[context_start]
+            # context_end_date = full_dates[context_end]
+            prediction_start_date = full_dates[prediction_start]
+            # prediction_end_date = full_dates[prediction_end]
+            training_prediction_end_date = prediction_start_date + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
 
-            context_goesxrs = full_sequence[0][i:i+model.context_window].unsqueeze(1).to(args.device)
-            context_biosentinel = full_sequence[1][i:i+model.context_window].unsqueeze(1).to(args.device)
+            context_goesxrs = full_sequence[0][context_start:context_end+1].unsqueeze(1).to(args.device)
+            context_biosentinel = full_sequence[1][context_start:context_end+1].unsqueeze(1).to(args.device)
             context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
             context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
             prediction_batch = run_model(model, context_batch, prediction_window).detach()
@@ -372,16 +369,25 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
             biosentinel_predictions = prediction_batch[:, :, 1]
             goesxrs_predictions = dataset_goes_xrs.unnormalize_data(goesxrs_predictions).cpu().numpy()
             biosentinel_predictions = dataset_biosentinel.unnormalize_data(biosentinel_predictions).cpu().numpy()
-            prediction_dates = [prediction_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
+            prediction_dates = [prediction_start_date + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
 
-            # print(len(prediction_dates), len(goesxrs_predictions[0]), len(biosentinel_predictions[0]), prediction_window)
-            # prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
+            title.set_text(title_prefix + ' ' + str(prediction_start_date))
+            ims['biosentinel_context_start'].set_xdata([context_start_date, context_start_date])
+            ims['biosentinel_prediction_start'].set_xdata([prediction_start_date, prediction_start_date])
+            ims['biosentinel_training_prediction_end'].set_xdata([training_prediction_end_date, training_prediction_end_date])
+            ims['goesxrs_context_start'].set_xdata([context_start_date, context_start_date])
+            ims['goesxrs_prediction_start'].set_xdata([prediction_start_date, prediction_start_date])
+            ims['goesxrs_training_prediction_end'].set_xdata([training_prediction_end_date, training_prediction_end_date])
 
             ims['biosentinel_prediction_mean'].set_data(prediction_dates, np.mean(biosentinel_predictions, axis=0))
             ims['goesxrs_prediction_mean'].set_data(prediction_dates, np.mean(goesxrs_predictions, axis=0))
             for i in range(args.num_samples):
                 ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
                 ims['goesxrs_prediction_{}'.format(i)].set_data(prediction_dates, goesxrs_predictions[i])
+
+            pbar.set_description('Frame {}'.format(prediction_start_date))
+            pbar.update(1)
+
 
         # plt.tight_layout()
         plt.tight_layout(rect=[0, 0, 1, 0.97])
