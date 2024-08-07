@@ -47,7 +47,7 @@ class Tee(object):
         self.stdout.flush()
 
 
-def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, model_data_dim, model_lstm_dim, model_lstm_depth, model_dropout, context_window, prediction_window, file_name):
+def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, file_name):
     print('Saving model to {}'.format(file_name))
     checkpoint = {
         'model': 'RadRecurrent',
@@ -57,12 +57,12 @@ def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, m
         'optimizer_state_dict': optimizer.state_dict(),
         'train_losses': train_losses,
         'valid_losses': valid_losses,
-        'model_context_window': context_window,
-        'model_prediction_window': prediction_window,
-        'model_data_dim': model_data_dim,
-        'model_lstm_dim': model_lstm_dim,
-        'model_lstm_depth': model_lstm_depth,
-        'model_dropout': model_dropout
+        'model_context_window': model.context_window,
+        'model_prediction_window': model.prediction_window,
+        'model_data_dim': model.data_dim,
+        'model_lstm_dim': model.lstm_dim,
+        'model_lstm_depth': model.lstm_depth,
+        'model_dropout': model.dropout
     }
     torch.save(checkpoint, file_name)
 
@@ -483,8 +483,8 @@ def main():
                 model_file = model_files[-1]
                 print('Resuming training from model file: {}'.format(model_file))
                 model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file)
-                model_data_dim = model.model_data_dim
-                model_lstm_dim = model.model_lstm_dim
+                model_data_dim = model.data_dim
+                model_lstm_dim = model.lstm_dim
                 model_lstm_depth = model.model_lstm_depth
                 model_dropout = model.model_dropout
                 model_context_window = model.context_window
@@ -573,7 +573,7 @@ def main():
 
                 # Save model
                 model_file = '{}/epoch-{:03d}-model.pth'.format(args.target_dir, epoch+1)
-                save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, model_data_dim, model_lstm_dim, model_lstm_depth, model_dropout, model_context_window, model_prediction_window, model_file)
+                save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, model_file)
 
 
                 # Plot losses

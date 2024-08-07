@@ -61,6 +61,7 @@ class SDOSequence(nn.Module):
 class RadRecurrent(nn.Module):
     def __init__(self, data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2, context_window=10, prediction_window=10):
         super().__init__()
+        self.data_dim = data_dim
         self.lstm_dim = lstm_dim
         self.lstm_depth = lstm_depth
         self.context_window = context_window # Not used within model, only for reference
