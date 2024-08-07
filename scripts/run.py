@@ -280,30 +280,34 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
     prediction_alpha = 0.1
+    prediction_mean_alpha = 0.7
 
     ims = {}
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
     ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
     ax.yaxis.set_label_position("right")
-    ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', alpha=0.75)
+    ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', alpha=0.75, label='Ground truth')
     # ax.tick_params(rotation=45)
     ax.set_xticklabels([])
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-    ims['biosentinel_context_start'] = ax.axvline(context_start, color='black', linestyle='--', label='Context start')
-    ims['biosentinel_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', label='Context end / Prediction start')
-    ims['biosentinel_training_prediction_end'] = ax.axvline(training_prediction_end, color='black', linestyle='--', label='Prediction end')
+    ims['biosentinel_context_start'] = ax.axvline(context_start, color='gray', linestyle='--', linewidth=1) # Context start
+    ims['biosentinel_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', linewidth=1) # Context end / Prediction start
+    ims['biosentinel_training_prediction_end'] = ax.axvline(training_prediction_end, color='gray', linestyle='--', linewidth=1) # Prediction end
     # prediction plots
+    ims['biosentinel_prediction_mean'] = ax.plot([], [], color='gray', alpha=prediction_mean_alpha, label='Prediction (mean)')[0]
     for i in range(args.num_samples):
-        ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
+        label = 'Prediction (samples)' if i == 0 else None
+        ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha, label=label)
+    ax.legend(loc='upper right')
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
     ax.set_ylabel('X-ray flux\n[W/m^2]')
     ax.yaxis.set_label_position("right")
-    ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', alpha=0.75)
+    ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', alpha=0.75, label='Ground truth')
     # ax.tick_params(rotation=45)
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
@@ -312,13 +316,15 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
     # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-    ims['goesxrs_context_start'] = ax.axvline(context_start, color='black', linestyle='--', label='Context start')
-    ims['goesxrs_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', label='Context end / Prediction start')
-    ims['goesxrs_training_prediction_end'] = ax.axvline(training_prediction_end, color='black', linestyle='--', label='Prediction end')
+    ims['goesxrs_context_start'] = ax.axvline(context_start, color='gray', linestyle='--', linewidth=1) # Context start
+    ims['goesxrs_prediction_start'] = ax.axvline(prediction_start, color='black', linestyle='-', linewidth=1) # Context end / Prediction start
+    ims['goesxrs_training_prediction_end'] = ax.axvline(training_prediction_end, color='gray', linestyle='--', linewidth=1) # Prediction end
     # prediction plots
+    ims['goesxrs_prediction_mean'] = ax.plot([], [], color='gray', alpha=prediction_mean_alpha, label='Prediction (mean)')[0]
     for i in range(args.num_samples):
-        ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha)
-        
+        label = 'Prediction (samples)' if i == 0 else None
+        ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha, label=label)
+    ax.legend(loc='upper right')
 
     title = plt.suptitle(title_prefix + ' ' + str(prediction_start))
 
@@ -328,11 +334,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
     with tqdm(total=num_frames) as pbar:
         def run(i):
             context_start = full_dates[i]
-            context_end = full_dates[i + model.context_window]
+            context_end = full_dates[i + model.context_window-1]
             prediction_start = context_end
             training_prediction_end = prediction_start + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
             prediction_end = full_dates[-1]
-            prediction_window = num_frames - i
+            prediction_window = num_frames - i + 1
             date = prediction_start
             pbar.set_description('Frame {}'.format(date))
             pbar.update(1)
@@ -359,6 +365,8 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
             # print(len(prediction_dates), len(goesxrs_predictions[0]), len(biosentinel_predictions[0]), prediction_window)
             # prediction_dates, goesxrs_predictions, biosentinel_predictions = predict(model, date, date_end, args)
 
+            ims['biosentinel_prediction_mean'].set_data(prediction_dates, np.mean(biosentinel_predictions, axis=0))
+            ims['goesxrs_prediction_mean'].set_data(prediction_dates, np.mean(goesxrs_predictions, axis=0))
             for i in range(args.num_samples):
                 ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
                 ims['goesxrs_prediction_{}'.format(i)].set_data(prediction_dates, goesxrs_predictions[i])
@@ -398,7 +406,7 @@ def main():
     parser.add_argument('--goes_sgps_file', type=str, default='goes/goes-sgps.csv', help='GOES SGPS file')
     parser.add_argument('--context_window', type=int, default=40, help='Context window')
     parser.add_argument('--prediction_window', type=int, default=40, help='Prediction window')
-    parser.add_argument('--num_samples', type=int, default=20, help='Number of samples for MC dropout inference')
+    parser.add_argument('--num_samples', type=int, default=50, help='Number of samples for MC dropout inference')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Delta minutes')
     parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
     parser.add_argument('--num_workers', type=int, default=4, help='Number of workers')
