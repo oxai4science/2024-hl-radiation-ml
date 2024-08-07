@@ -181,7 +181,7 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     if title is not None:
-        plt.suptitle(title)
+        plt.suptitle(title + ' ' + str(prediction_dates[0]))
     plt.savefig(file_name)
 
     return ylims
