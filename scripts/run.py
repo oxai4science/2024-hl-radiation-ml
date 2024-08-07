@@ -490,6 +490,8 @@ def main():
                 model_dropout = model.dropout
                 model_context_window = model.context_window
                 model_prediction_window = model.prediction_window
+                print('Epoch    : {:,}'.format(epoch_start))
+                print('Iteration: {:,}'.format(iteration))
             else:
                 print('Creating new model')
                 model_data_dim = 2
