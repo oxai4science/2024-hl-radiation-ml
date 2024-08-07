@@ -67,7 +67,7 @@ def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, f
     torch.save(checkpoint, file_name)
 
 
-def load_model(file_name):
+def load_model(file_name, device):
     checkpoint = torch.load(file_name)
     if checkpoint['model'] == 'RadRecurrent':    
         model_context_window = checkpoint['model_context_window']
@@ -78,6 +78,7 @@ def load_model(file_name):
         model_dropout = checkpoint['model_dropout']
         model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
         model.load_state_dict(checkpoint['model_state_dict'])
+        model = model.to(device)
         optimizer = optim.Adam(model.parameters())
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         epoch = checkpoint['epoch']
@@ -482,7 +483,7 @@ def main():
                 model_files.sort()
                 model_file = model_files[-1]
                 print('Resuming training from model file: {}'.format(model_file))
-                model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file)
+                model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file, device)
                 model_data_dim = model.data_dim
                 model_lstm_dim = model.lstm_dim
                 model_lstm_depth = model.lstm_depth
@@ -503,8 +504,8 @@ def main():
                 epoch_start = 0
                 train_losses = []
                 valid_losses = []
+                model = model.to(device)
 
-            model = model.to(device)
             model.train()
 
             num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -609,7 +610,7 @@ def main():
         if args.mode == 'test':
             print('\n*** Testing mode\n')
 
-            model, _, _, _, _, _ = load_model(args.model_file)
+            model, _, _, _, _, _ = load_model(args.model_file, device)
             model.train() # set to train mode to use MC dropout
             model.to(device)
 
