@@ -137,6 +137,8 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     num_samples = goesxrs_predictions.shape[0]
     prediction_alpha = 0.1
 
+    ylims = {}
+
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
     ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
@@ -154,6 +156,7 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
     ax.axvline(training_prediction_window_end, color='gray', linestyle='--', linewidth=1)
     ax.legend(loc='upper right')
+    ylims['biosentinel'] = ax.get_ylim()
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
@@ -174,11 +177,15 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
     ax.axvline(training_prediction_window_end, color='gray', linestyle='--', linewidth=1)
     ax.legend(loc='upper right')
+    ylims['goesxrs'] = ax.get_ylim()
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     if title is not None:
         plt.suptitle(title)
     plt.savefig(file_name)
+
+    return ylims
+
 
 
 def run_model(model, context, prediction_window):
@@ -245,10 +252,11 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
     save_test_file(prediction_dates, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_file)
 
     test_plot_file = file_name + '.pdf'
-    save_test_plot(context_dates, prediction_dates, training_prediction_window_end, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
+    ylims = save_test_plot(context_dates, prediction_dates, training_prediction_window_end, goesxrs_predictions, biosentinel_predictions, goesxrs_ground_truth_dates, goesxrs_ground_truth_values, biosentinel_ground_truth_dates, biosentinel_ground_truth_values, test_plot_file, title=title)
+    return ylims
 
 
-def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args):
+def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims, args):
     # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
@@ -304,6 +312,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
         label = 'Prediction (samples)' if i == 0 else None
         ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha, label=label)
     ax.legend(loc='upper right')
+    ax.set_ylim(ylims['biosentinel'])
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
@@ -327,6 +336,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
         label = 'Prediction (samples)' if i == 0 else None
         ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color='gray', alpha=prediction_alpha, label=label)
     ax.legend(loc='upper right')
+    ax.set_ylim(ylims['goesxrs'])
 
     title = plt.suptitle(title_prefix + ' ' + str(prediction_start))
 
@@ -345,7 +355,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, args)
             pbar.set_description('Frame {}'.format(date))
             pbar.update(1)
 
-            title.set_text(title_prefix + str(prediction_start))
+            title.set_text(title_prefix + ' ' + str(prediction_start))
             ims['biosentinel_context_start'].set_xdata([context_start, context_start])
             ims['biosentinel_prediction_start'].set_xdata([prediction_start, prediction_start])
             ims['biosentinel_training_prediction_end'].set_xdata([training_prediction_end, training_prediction_end])
@@ -605,8 +615,8 @@ def main():
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        run_test(model, date_start, date_end, file_prefix, title, args)
-                        run_test_video(model, date_start, date_end, file_prefix, title, args)
+                        plot_ylims = run_test(model, date_start, date_end, file_prefix, title, args)
+                        run_test_video(model, date_start, date_end, file_prefix, title, plot_ylims, args)
 
                 if args.test_seen_event_id is not None:
                     for event_id in args.test_seen_event_id:
@@ -618,8 +628,8 @@ def main():
                         date_end = datetime.datetime.fromisoformat(date_end)
                         file_prefix = 'epoch-{:03d}-test-seen-event-{}-{}pfu-{}-{}'.format(epoch+1, event_id, max_pfu, date_start.strftime('%Y%m%d%H%M'), date_end.strftime('%Y%m%d%H%M'))
                         title = 'Event: {} (>10 MeV max: {} pfu)'.format(event_id, max_pfu)
-                        run_test(model, date_start, date_end, file_prefix, title, args)
-                        run_test_video(model, date_start, date_end, file_prefix, title, args)
+                        plot_ylims = run_test(model, date_start, date_end, file_prefix, title, args)
+                        run_test_video(model, date_start, date_end, file_prefix, title, plot_ylims, args)
 
         if args.mode == 'test':
             print('\n*** Testing mode\n')
@@ -655,8 +665,8 @@ def main():
 
 
             for date_start, date_end, file_prefix, title in tests_to_run:
-                run_test(model, date_start, date_end, file_prefix, title, args)
-                run_test_video(model, date_start, date_end, file_prefix, title, args)
+                plot_ylims = run_test(model, date_start, date_end, file_prefix, title, args)
+                run_test_video(model, date_start, date_end, file_prefix, title, plot_ylims, args)
 
 
         print('\nEnd time: {}'.format(datetime.datetime.now()))
