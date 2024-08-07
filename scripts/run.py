@@ -16,7 +16,7 @@ from tqdm import tqdm
 import shutil
 import traceback
 import matplotlib.animation as animation
-
+import glob
 
 from datasets import SDOMLlite, RadLab, GOESXRS, Sequences
 from models import RadRecurrent
@@ -45,6 +45,48 @@ class Tee(object):
     def flush(self):
         self.file.flush()
         self.stdout.flush()
+
+
+def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, model_data_dim, model_lstm_dim, model_lstm_depth, model_dropout, context_window, prediction_window, file_name):
+    print('Saving model to {}'.format(file_name))
+    checkpoint = {
+        'model': 'RadRecurrent',
+        'epoch': epoch,
+        'iteration': iteration,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'train_losses': train_losses,
+        'valid_losses': valid_losses,
+        'model_context_window': context_window,
+        'model_prediction_window': prediction_window,
+        'model_data_dim': model_data_dim,
+        'model_lstm_dim': model_lstm_dim,
+        'model_lstm_depth': model_lstm_depth,
+        'model_dropout': model_dropout
+    }
+    torch.save(checkpoint, file_name)
+
+
+def load_model(file_name):
+    checkpoint = torch.load(file_name)
+    if checkpoint['model'] == 'RadRecurrent':    
+        model_context_window = checkpoint['model_context_window']
+        model_prediction_window = checkpoint['model_prediction_window']
+        model_data_dim = checkpoint['model_data_dim']
+        model_lstm_dim = checkpoint['model_lstm_dim']
+        model_lstm_depth = checkpoint['model_lstm_depth']
+        model_dropout = checkpoint['model_dropout']
+        model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer = optim.Adam(model.parameters())
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        iteration = checkpoint['iteration']
+        train_losses = checkpoint['train_losses']
+        valid_losses = checkpoint['valid_losses']
+    else:
+        raise ValueError('Unknown model type: {}'.format(checkpoint['model']))
+    return model, optimizer, epoch, iteration, train_losses, valid_losses
 
 
 def seed(seed=None):
@@ -434,11 +476,29 @@ def main():
             train_loader = DataLoader(dataset_sequences_train, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
             valid_loader = DataLoader(dataset_sequences_valid, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
-            model_data_dim = 2
-            model_lstm_dim = 1024
-            model_lstm_depth = args.lstm_depth
-            model_dropout = 0.2
-            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=args.context_window, prediction_window=args.prediction_window)
+            # check if a previous training run exists in the target directory, if so, find the latest model file saved, resume training from there by loading the model instead of creating a new one
+            model_files = glob.glob('{}/epoch-*-model.pth'.format(args.target_dir))
+            if len(model_files) > 0:
+                model_files.sort()
+                model_file = model_files[-1]
+                print('Resuming training from model file: {}'.format(model_file))
+                model, optimizer, epoch, iteration, train_losses, valid_losses = load_model(model_file)
+                model_data_dim = model.model_data_dim
+                model_lstm_dim = model.model_lstm_dim
+                model_lstm_depth = model.model_lstm_depth
+                model_dropout = model.model_dropout
+                model_context_window = model.context_window
+                model_prediction_window = model.prediction_window
+            else:
+                print('Creating new model')
+                model_data_dim = 2
+                model_lstm_dim = 1024
+                model_lstm_depth = args.lstm_depth
+                model_dropout = 0.2
+                model_context_window = args.context_window
+                model_prediction_window = args.prediction_window
+                model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
+
             model = model.to(device)
             model.train()
 
@@ -513,23 +573,8 @@ def main():
 
                 # Save model
                 model_file = '{}/epoch-{:03d}-model.pth'.format(args.target_dir, epoch+1)
-                print('Saving model to {}'.format(model_file))
-                checkpoint = {
-                    'model': 'RadRecurrent',
-                    'epoch': epoch,
-                    'iteration': iteration,
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'train_losses': train_losses,
-                    'valid_losses': valid_losses,
-                    'model_context_window': args.context_window,
-                    'model_prediction_window': args.prediction_window,
-                    'model_data_dim': model_data_dim,
-                    'model_lstm_dim': model_lstm_dim,
-                    'model_lstm_depth': model_lstm_depth,
-                    'model_dropout': model_dropout
-                }
-                torch.save(checkpoint, model_file)
+                save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, model_data_dim, model_lstm_dim, model_lstm_depth, model_dropout, model_context_window, model_prediction_window, model_file)
+
 
                 # Plot losses
                 plot_file = '{}/epoch-{:03d}-loss.pdf'.format(args.target_dir, epoch+1)
@@ -564,18 +609,7 @@ def main():
         if args.mode == 'test':
             print('\n*** Testing mode\n')
 
-            checkpoint = torch.load(args.model_file)
-            model_context_window = checkpoint['model_context_window']
-            model_prediction_window = checkpoint['model_prediction_window']
-            model_data_dim = checkpoint['model_data_dim']
-            model_lstm_dim = checkpoint['model_lstm_dim']
-            model_lstm_depth = checkpoint['model_lstm_depth']
-            model_dropout = checkpoint['model_dropout']
-            
-            model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
-            # model = SDOSequence(channels=6, embedding_dim=1024, sequence_length=args.sequence_length)
-            model = model.to(device)
-            model.load_state_dict(checkpoint['model_state_dict'])
+            model, _, _, _, _, _ = load_model(args.model_file)
             model.train() # set to train mode to use MC dropout
             model.to(device)
 
