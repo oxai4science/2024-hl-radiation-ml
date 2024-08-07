@@ -492,8 +492,8 @@ def main():
                 model_prediction_window = model.prediction_window
                 epoch_start = epoch + 1
                 iteration = iteration + 1
-                print('Epoch    : {:,}'.format(epoch_start))
-                print('Iteration: {:,}'.format(iteration))
+                print('Next epoch    : {:,}'.format(epoch_start))
+                print('Next iteration: {:,}'.format(iteration))
             else:
                 print('Creating new model')
                 model_data_dim = 2
