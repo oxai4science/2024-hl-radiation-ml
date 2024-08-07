@@ -482,7 +482,7 @@ def main():
                 model_files.sort()
                 model_file = model_files[-1]
                 print('Resuming training from model file: {}'.format(model_file))
-                model, optimizer, epoch, iteration, train_losses, valid_losses = load_model(model_file)
+                model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file)
                 model_data_dim = model.model_data_dim
                 model_lstm_dim = model.model_lstm_dim
                 model_lstm_depth = model.model_lstm_depth
@@ -498,6 +498,11 @@ def main():
                 model_context_window = args.context_window
                 model_prediction_window = args.prediction_window
                 model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
+                optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+                iteration = 0
+                epoch_start = 0
+                train_losses = []
+                valid_losses = []
 
             model = model.to(device)
             model.train()
@@ -505,12 +510,7 @@ def main():
             num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
             print('\nNumber of parameters: {:,}\n'.format(num_params))
 
-            optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-
-            iteration = 0
-            train_losses = []
-            valid_losses = []
-            for epoch in range(args.epochs):
+            for epoch in range(epoch_start, args.epochs):
                 print('\n*** Epoch: {:,}/{:,}'.format(epoch+1, args.epochs))
                 print('*** Training')
                 model.train()
