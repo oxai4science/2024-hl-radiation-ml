@@ -147,7 +147,7 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
 
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
-    ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
+    ax.set_ylabel('Absorbed dose rate\n[μGy/min]')
     ax.yaxis.set_label_position("right")
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color=colors['biosentinel'], label='Ground truth', alpha=0.75)
     ax.plot(prediction_dates, np.mean(biosentinel_predictions, axis=0), color=colors['prediction'], alpha=prediction_mean_alpha, label='Prediction (mean)')
@@ -313,7 +313,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     ims = {}
     ax = axs['biosentinel']
     ax.set_title('Biosentinel BPD')
-    ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
+    ax.set_ylabel('Absorbed dose rate\n[μGy/min]')
     ax.yaxis.set_label_position("right")
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color=colors['biosentinel'], alpha=0.75, label='Ground truth')
     ax.xaxis.set_minor_locator(hours_locator)
