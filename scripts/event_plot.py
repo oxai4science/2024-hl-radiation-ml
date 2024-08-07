@@ -60,7 +60,7 @@ def main():
     parser.add_argument('--date_end', type=str, default='2023-02-28 01:40:00', help='End date')
     parser.add_argument('--sequence_length', type=int, default=20, help='Sequence length')
     parser.add_argument('--delta_minutes', type=int, default=15, help='Time delta in minutes')
-    parser.add_argument('--event_id', nargs='+', default=None, help='Test event IDs')
+    parser.add_argument('--event_id', nargs='+', default=['biosentinel01', 'biosentinel02', 'biosentinel03', 'biosentinel04', 'biosentinel05', 'biosentinel06', 'biosentinel07', 'biosentinel08', 'biosentinel09', 'biosentinel10', 'biosentinel11', 'biosentinel12', 'biosentinel13', 'biosentinel14', 'biosentinel15', 'biosentinel16', 'biosentinel17', 'biosentinel18', 'biosentinel19'], help='Test event IDs')
     parser.add_argument('--fps', type=int, default=10, help='Frames per second')
 
     args = parser.parse_args()
