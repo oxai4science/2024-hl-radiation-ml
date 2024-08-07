@@ -299,8 +299,8 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
 
     fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
 
-    prediction_alpha = 0.1
-    prediction_mean_alpha = 0.7
+    prediction_alpha = 0.08
+    prediction_mean_alpha = 0.66
 
     hours_locator = matplotlib.dates.HourLocator(interval=1)
     colors = {}
