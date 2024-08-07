@@ -485,8 +485,8 @@ def main():
                 model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file)
                 model_data_dim = model.data_dim
                 model_lstm_dim = model.lstm_dim
-                model_lstm_depth = model.model_lstm_depth
-                model_dropout = model.model_dropout
+                model_lstm_depth = model.lstm_depth
+                model_dropout = model.dropout
                 model_context_window = model.context_window
                 model_prediction_window = model.prediction_window
             else:
