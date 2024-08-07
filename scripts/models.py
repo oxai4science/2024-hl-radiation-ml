@@ -64,12 +64,13 @@ class RadRecurrent(nn.Module):
         self.data_dim = data_dim
         self.lstm_dim = lstm_dim
         self.lstm_depth = lstm_depth
+        self.dropout = dropout
         self.context_window = context_window # Not used within model, only for reference
         self.prediction_window = prediction_window # Not used within model, only for reference
 
         self.lstm = nn.LSTM(input_size=data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, dropout=dropout, batch_first=True)
         self.fc1 = nn.Linear(lstm_dim, data_dim)
-        self.dropout = nn.Dropout(dropout)
+        self.dropout1 = nn.Dropout(dropout)
         self.hidden = None
 
     def init(self, batch_size):
@@ -91,7 +92,7 @@ class RadRecurrent(nn.Module):
 
     def forward(self, x):
         x, self.hidden = self.lstm(x, self.hidden)
-        x = self.dropout(x)
+        x = self.dropout1(x)
         x = torch.relu(x)
         x = self.fc1(x)
         return x
