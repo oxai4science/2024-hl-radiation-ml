@@ -483,13 +483,15 @@ def main():
                 model_files.sort()
                 model_file = model_files[-1]
                 print('Resuming training from model file: {}'.format(model_file))
-                model, optimizer, epoch_start, iteration, train_losses, valid_losses = load_model(model_file, device)
+                model, optimizer, epoch, iteration, train_losses, valid_losses = load_model(model_file, device)
                 model_data_dim = model.data_dim
                 model_lstm_dim = model.lstm_dim
                 model_lstm_depth = model.lstm_depth
                 model_dropout = model.dropout
                 model_context_window = model.context_window
                 model_prediction_window = model.prediction_window
+                epoch_start = epoch + 1
+                iteration = iteration + 1
                 print('Epoch    : {:,}'.format(epoch_start))
                 print('Iteration: {:,}'.format(iteration))
             else:
