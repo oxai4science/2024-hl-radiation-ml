@@ -141,37 +141,39 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     ax.set_title('Biosentinel BPD')
     ax.set_ylabel('Absorbed dose rate\n[mGy/min]')
     ax.yaxis.set_label_position("right")
-    for i in range(num_samples):
-        label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.plot(biosentinel_ground_truth_dates, biosentinel_ground_truth_values, color='blue', label='Ground truth', alpha=0.75)
+    ax.plot(prediction_dates, np.mean(biosentinel_predictions, axis=0), color='gray', alpha=0.7, label='Prediction (mean)')
+    for i in range(num_samples):
+        label = 'Prediction (samples)' if i == 0 else None
+        ax.plot(prediction_dates, biosentinel_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_xticklabels([])
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')    
-    ax.legend()
-    ax.axvline(context_dates[0], color='black', linestyle='--', label='Context start')
-    ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Context end / Prediction start')
-    ax.axvline(training_prediction_window_end, color='black', linestyle='--', label='Prediction end')
+    ax.axvline(context_dates[0], color='gray', linestyle='--', linewidth=1)
+    ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
+    ax.axvline(training_prediction_window_end, color='gray', linestyle='--', linewidth=1)
+    ax.legend(loc='upper right')
 
     ax = axs['goesxrs']
     ax.set_title('GOES XRS')
     ax.set_ylabel('X-ray flux\n[W/m^2]')
     ax.yaxis.set_label_position("right")
-    for i in range(num_samples):
-        label = 'Prediction' if i == 0 else None
-        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.plot(goesxrs_ground_truth_dates, goesxrs_ground_truth_values, color='purple', label='Ground truth', alpha=0.75)
+    ax.plot(prediction_dates, np.mean(goesxrs_predictions, axis=0), color='gray', alpha=0.7, label='Prediction (mean)')
+    for i in range(num_samples):
+        label = 'Prediction (samples)' if i == 0 else None
+        ax.plot(prediction_dates, goesxrs_predictions[i], label=label, color='gray', alpha=prediction_alpha)
     ax.grid(color='#f0f0f0', zorder=0)
     ax.set_yscale('log')
     ax.set_xticks(axs['biosentinel'].get_xticks())
     ax.set_xlim(axs['biosentinel'].get_xlim())
     myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
     ax.xaxis.set_major_formatter(myFmt)
-    ax.legend()
-    ax.axvline(context_dates[0], color='black', linestyle='--', label='Context start')
-    ax.axvline(prediction_dates[0], color='black', linestyle='-', label='Context end / Prediction start')
-    ax.axvline(training_prediction_window_end, color='black', linestyle='--', label='Prediction end')
+    ax.axvline(context_dates[0], color='gray', linestyle='--', linewidth=1)
+    ax.axvline(prediction_dates[0], color='black', linestyle='-', linewidth=1)
+    ax.axvline(training_prediction_window_end, color='gray', linestyle='--', linewidth=1)
+    ax.legend(loc='upper right')
 
     plt.tight_layout(rect=[0, 0, 1, 0.97])
     if title is not None:
