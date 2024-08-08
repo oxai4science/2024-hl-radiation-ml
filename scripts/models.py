@@ -143,7 +143,8 @@ class RadRecurrentWithSDO(nn.Module):
         sdo = self.sdo_embedding(sdo)
         sdo = sdo.view(batch_size, seq_len, -1)
         x = torch.cat([sdo, data], dim=-1)
-        _, self.hidden_predict = self.lstm_context(x, self.hidden_context)
+        _, self.hidden_context = self.lstm_context(x, self.hidden_context)
+        self.hidden_predict = self.hidden_context
 
     def forward(self, x):
         x, self.hidden_predict = self.lstm_predict(x, self.hidden_predict)
@@ -152,13 +153,20 @@ class RadRecurrentWithSDO(nn.Module):
         x = self.fc1(x)
         return x
 
-    def predict(self, context_sdo, context_data, prediction_window):
-        batch_size = context_sdo.shape[0]
+    def predict(self, context_sdo, context_data, prediction_window, num_samples=1):
+        context_batch_size = context_sdo.shape[0]
+        if context_batch_size != 1:
+            raise ValueError('Batch size of context must be 1')
         # context_length = context.shape[1]
         # print('Running model with context shape: {}'.format(context.shape))
-        self.init(batch_size)
+        self.init(context_batch_size)
         self.forward_context(context_sdo, context_data)
+
+        h, c = self.hidden_context
+        self.hidden_predict = (h.repeat(1, num_samples, 1), c.repeat(1, num_samples, 1))
+
         x = context_data[:, -1, :].unsqueeze(1) # prepend the prediction values with the last context input
+        x = x.repeat(num_samples, 1, 1)
         prediction = [x]
         for _ in range(prediction_window):
             x = self.forward(x)
