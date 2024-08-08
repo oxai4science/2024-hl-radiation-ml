@@ -18,7 +18,7 @@ import traceback
 import matplotlib.animation as animation
 import glob
 
-from datasets import SDOMLlite, RadLab, GOESXRS, Sequences
+from datasets import SDOMLlite, RadLab, GOESXRS, Sequences, ConcatDataset
 from models import RadRecurrent
 from events import EventCatalog
 
@@ -514,29 +514,42 @@ def main():
         if args.mode == 'train':
             print('\n*** Training mode\n')
 
+            training_sequence_length = args.context_window + args.prediction_window
+
+            print('Processing excluded dates')
+            datasets_goes_xrs_valid = []
+            datasets_biosentinel_valid = []
             date_exclusions = []
             if args.test_event_id is not None:
                 for event_id in args.test_event_id:
+                    print('Excluding event: {}'.format(event_id))
                     if event_id not in EventCatalog:
                         raise ValueError('Event ID not found in events: {}'.format(event_id))
-                    date_start, date_end, _ = EventCatalog[event_id]
-                    date_start = datetime.datetime.fromisoformat(date_start)
-                    date_end = datetime.datetime.fromisoformat(date_end)
-                    date_exclusions.append((date_start, date_end))
+                    exclusion_start, exclusion_end, _ = EventCatalog[event_id]
+                    exclusion_start = datetime.datetime.fromisoformat(exclusion_start)
+                    exclusion_end = datetime.datetime.fromisoformat(exclusion_end)
+                    date_exclusions.append((exclusion_start, exclusion_end))
+                    datasets_goes_xrs_valid.append(GOESXRS(data_dir_goes_xrs, date_start=exclusion_start, date_end=exclusion_end))
+                    datasets_biosentinel_valid.append(RadLab(data_dir_radlab, instrument='BPD', date_start=exclusion_start, date_end=exclusion_end))
+
+            dataset_goes_xrs_valid = ConcatDataset(datasets_goes_xrs_valid)
+            dataset_biosentinel_valid = ConcatDataset(datasets_biosentinel_valid)
+            dataset_sequences_valid = Sequences([dataset_goes_xrs_valid, dataset_biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
 
             # For training and validation
             # dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
             dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             # dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-            training_sequence_length = args.context_window + args.prediction_window
-            dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
+            dataset_sequences_train = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
+
+
 
 
             # Split sequences into train and validation
-            valid_size = int(args.valid_proportion * len(dataset_sequences))
-            train_size = len(dataset_sequences) - valid_size
-            dataset_sequences_train, dataset_sequences_valid = random_split(dataset_sequences, [train_size, valid_size])
+            # valid_size = int(args.valid_proportion * len(dataset_sequences))
+            # train_size = len(dataset_sequences) - valid_size
+            # dataset_sequences_train, dataset_sequences_valid = random_split(dataset_sequences, [train_size, valid_size])
 
             print('\nTrain size: {:,}'.format(len(dataset_sequences_train)))
             print('Valid size: {:,}'.format(len(dataset_sequences_valid)))
