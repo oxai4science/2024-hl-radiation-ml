@@ -307,6 +307,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     colors['biosentinel'] = 'mediumblue'
     colors['goesxrs'] = 'purple'
     colors['prediction'] = 'red'
+    colors['prediction_secondary'] = '#ff6e6e'
     prediction_alpha = 0.08
     prediction_mean_alpha = 0.66
     
@@ -327,9 +328,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     ims['biosentinel_training_prediction_end'] = ax.axvline(training_prediction_end, color=colors['prediction'], linestyle='--', linewidth=1) # Prediction end
     # prediction plots
     ims['biosentinel_prediction_mean'] = ax.plot([], [], color=colors['prediction'], alpha=prediction_mean_alpha, label='Prediction (mean)')[0]
+    ims['biosentinel_prediction_mean_secondary'] = ax.plot([], [], color=colors['prediction_secondary'], alpha=prediction_mean_alpha)[0]
     for i in range(args.num_samples):
         label = 'Prediction (samples)' if i == 0 else None
         ims['biosentinel_prediction_{}'.format(i)], = ax.plot([], [], color=colors['prediction'], alpha=prediction_alpha, label=label)
+        ims['biosentinel_prediction_{}_secondary'.format(i)], = ax.plot([], [], color=colors['prediction_secondary'], alpha=prediction_alpha)
     ax.legend(loc='upper right')
     ax.set_ylim(ylims['biosentinel'])
 
@@ -353,9 +356,11 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     ims['goesxrs_training_prediction_end'] = ax.axvline(training_prediction_end, color=colors['prediction'], linestyle='--', linewidth=1) # Prediction end
     # prediction plots
     ims['goesxrs_prediction_mean'] = ax.plot([], [], color=colors['prediction'], alpha=prediction_mean_alpha, label='Prediction (mean)')[0]
+    ims['goesxrs_prediction_mean_secondary'] = ax.plot([], [], color=colors['prediction_secondary'], alpha=prediction_mean_alpha)[0]
     for i in range(args.num_samples):
         label = 'Prediction (samples)' if i == 0 else None
         ims['goesxrs_prediction_{}'.format(i)], = ax.plot([], [], color=colors['prediction'], alpha=prediction_alpha, label=label)
+        ims['goesxrs_prediction_{}_secondary'.format(i)], = ax.plot([], [], color=colors['prediction_secondary'], alpha=prediction_alpha)
     ax.legend(loc='upper right')
     ax.set_ylim(ylims['goesxrs'])
 
@@ -400,11 +405,26 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
             ims['goesxrs_prediction_start'].set_xdata([prediction_start_date, prediction_start_date])
             ims['goesxrs_training_prediction_end'].set_xdata([training_prediction_end_date, training_prediction_end_date])
 
-            ims['biosentinel_prediction_mean'].set_data(prediction_dates, np.mean(biosentinel_predictions, axis=0))
-            ims['goesxrs_prediction_mean'].set_data(prediction_dates, np.mean(goesxrs_predictions, axis=0))
+            prediction_dates_primary = prediction_dates[:model.prediction_window+1]
+            prediction_dates_secondary = prediction_dates[model.prediction_window:]
+            biosentinel_predictions_primary = biosentinel_predictions[:, :model.prediction_window+1]
+            biosentinel_predictions_secondary = biosentinel_predictions[:, model.prediction_window:]
+            goesxrs_predictions_primary = goesxrs_predictions[:, :model.prediction_window+1]
+            goesxrs_predictions_secondary = goesxrs_predictions[:, model.prediction_window:]
+
+            ims['biosentinel_prediction_mean'].set_data(prediction_dates_primary, np.mean(biosentinel_predictions_primary, axis=0))
+            ims['goesxrs_prediction_mean'].set_data(prediction_dates_primary, np.mean(goesxrs_predictions_primary, axis=0))
+
+            ims['biosentinel_prediction_mean_secondary'].set_data(prediction_dates_secondary, np.mean(biosentinel_predictions_secondary, axis=0))
+            ims['goesxrs_prediction_mean_secondary'].set_data(prediction_dates_secondary, np.mean(goesxrs_predictions_secondary, axis=0))
+
             for i in range(args.num_samples):
-                ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates, biosentinel_predictions[i])
-                ims['goesxrs_prediction_{}'.format(i)].set_data(prediction_dates, goesxrs_predictions[i])
+                ims['biosentinel_prediction_{}'.format(i)].set_data(prediction_dates_primary, biosentinel_predictions_primary[i])
+                ims['goesxrs_prediction_{}'.format(i)].set_data(prediction_dates_primary, goesxrs_predictions_primary[i])
+
+                ims['biosentinel_prediction_{}_secondary'.format(i)].set_data(prediction_dates_secondary, biosentinel_predictions_secondary[i])
+                ims['goesxrs_prediction_{}_secondary'.format(i)].set_data(prediction_dates_secondary, goesxrs_predictions_secondary[i])
+
 
             pbar.set_description('Frame {}'.format(prediction_start_date))
             pbar.update(1)
