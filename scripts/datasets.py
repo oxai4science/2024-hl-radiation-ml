@@ -92,6 +92,7 @@ class SDOMLlite(Dataset):
             raise RuntimeError('No frames found with given list of channels')
 
         self.dates_set = set(self.dates)
+        self.name = 'SDOML-lite'
 
         print('Frames total    : {:,}'.format(total_steps))
         print('Frames available: {:,}'.format(len(self.dates)))
@@ -111,6 +112,10 @@ class SDOMLlite(Dataset):
         date_start = self.prefix_to_date(prefix_start)
         date_end = self.prefix_to_date(prefix_end)
         return date_start, date_end
+    
+    def __repr__(self):
+        return 'SDOML-lite ({} - {})'.format(self.date_start, self.date_end)
+
 
     def __len__(self):
         return len(self.dates)
@@ -238,7 +243,10 @@ class PandasDataset(Dataset):
     
     def unnormalize_data(self, data):
         raise NotImplementedError('unnormalize_data not implemented')
-            
+    
+    def __repr__(self):
+        return '{} ({} - {})'.format(self.name, self.date_start, self.date_end)
+
     def __len__(self):
         return len(self.data)
     
@@ -309,6 +317,10 @@ class PandasDataset(Dataset):
 class ConcatDataset(Dataset):
     def __init__(self, datasets):
         self.datasets = datasets
+
+        print('\nConcatenated datasets')
+        for dataset in self.datasets:
+            print('Dataset : {}'.format(dataset))
 
         # check that there is no overlap in the .dates_set of each dataset
         self.dates_set = set()

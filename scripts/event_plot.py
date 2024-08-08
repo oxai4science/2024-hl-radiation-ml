@@ -133,7 +133,7 @@ def main():
                                     ['goessgps10', 'goessgps10', 'goessgps10', 'goessgps10', 'goessgps10', 'goessgps10'],
                                     ['goessgps100', 'goessgps100', 'goessgps100', 'goessgps100', 'goessgps100', 'goessgps100'],
                                     ['goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs']
-                                    ], figsize=(20, 10), height_ratios=[2.5, 1, 1, 1, 1])
+                                    ], figsize=(20, 12.5), height_ratios=[2.5, 1, 1, 1, 1])
 
         hours_locator = matplotlib.dates.HourLocator(interval=1)
 

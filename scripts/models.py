@@ -81,35 +81,48 @@ class RadRecurrent(nn.Module):
         c = c.to(device)
         self.hidden = (h, c)
 
-    def init_with_context(self, context):
-        # context has shape (batch_size, lstm_dim)
-        h = context.unsqueeze(0).repeat(self.lstm_depth, 1, 1)
-        c = torch.zeros(self.lstm_depth, context.shape[0], self.lstm_dim)
-        device = next(self.parameters()).device
-        h = h.to(device)
-        c = c.to(device)
-        self.hidden = (h, c)
-
     def forward(self, x):
         x, self.hidden = self.lstm(x, self.hidden)
         x = self.dropout1(x)
         x = torch.relu(x)
         x = self.fc1(x)
         return x
-    
 
-class RadContext(nn.Module):
-    def __init__(self, input_sdo_channels=6, input_sdo_dim=1024, input_other_dim=1, output_dim=1024, lstm_dim=1024, lstm_depth=2):
+    def predict(self, context, prediction_window):
+        batch_size = context.shape[0]
+        # context_length = context.shape[1]
+        # print('Running model with context shape: {}'.format(context.shape))
+        self.init(batch_size)
+        context_input = context
+        prediction = [context_input[:, -1, :].unsqueeze(1)] # prepend the prediction values with the last context input
+        context_output = self(context_input)
+        x = context_output[:, -1, :].unsqueeze(1)
+        for _ in range(prediction_window):
+            prediction.append(x)
+            x = self.forward(x)
+        prediction = torch.cat(prediction, dim=1)
+        return prediction
+
+
+class RadRecurrentWithSDO(nn.Module):
+    def __init__(self, data_dim=2, lstm_dim=1024, lstm_depth=2, dropout=0.2, sdo_channels=6, sdo_dim=1024, context_window=10, prediction_window=10):
         super().__init__()
+        self.data_dim = data_dim
         self.lstm_dim = lstm_dim
         self.lstm_depth = lstm_depth
-        self.input_sdo_dim = input_sdo_dim
-        self.input_other_dim = input_other_dim
+        self.dropout = dropout
+        self.sdo_channels = sdo_channels
+        self.sdo_dim = sdo_dim
+        self.context_window = context_window # Not used within model, only for reference
+        self.prediction_window = prediction_window # Not used within model, only for reference
 
-        self.sdo_embedding = SDOEmbedding(channels=input_sdo_channels, embedding_dim=input_sdo_dim)
-        self.lstm = nn.LSTM(input_size=input_sdo_dim+input_other_dim, hidden_size=lstm_dim, num_layers=lstm_depth, batch_first=True)
-        self.fc1 = nn.Linear(lstm_dim, output_dim)
-        self.hidden = None
+        self.sdo_embedding = SDOEmbedding(channels=sdo_channels, embedding_dim=sdo_dim)
+        self.lstm_context = nn.LSTM(input_size=sdo_dim+data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, batch_first=True)
+        self.lstm_predict = nn.LSTM(input_size=data_dim, hidden_size=lstm_dim, num_layers=lstm_depth, dropout=dropout, batch_first=True)
+        self.fc1 = nn.Linear(lstm_dim, data_dim)
+        self.dropout1 = nn.Dropout(dropout)
+        self.hidden_context = None
+        self.hidden_predict = None
 
     def init(self, batch_size):
         h = torch.zeros(self.lstm_depth, batch_size, self.lstm_dim)
@@ -117,25 +130,41 @@ class RadContext(nn.Module):
         device = next(self.parameters()).device
         h = h.to(device)
         c = c.to(device)
-        self.hidden = (h, c)
+        self.hidden_context = (h, c)
 
-    def forward(self, input_sdo, input_other):
-        # input_sdo has shape (batch_size, seq_len, channels, size, size)
-        # input_other has shape (batch_size, seq_len, self.input_other_dim)
-        batch_size = input_sdo.shape[0]
-        seq_len = input_sdo.shape[1]
-        channels = input_sdo.shape[2]
-        size = input_sdo.shape[3]
-        input_sdo = input_sdo.view(batch_size*seq_len, channels, size, size)
-        input_sdo = self.sdo_embedding(input_sdo)
-        input_sdo = input_sdo.view(batch_size, seq_len, -1)
-        x = torch.cat([input_sdo, input_other], dim=-1)
-        x, self.hidden = self.lstm(x, self.hidden)
+    def forward_context(self, sdo, data):
+        # sdo has shape (batch_size, seq_len, channels, size, size)
+        # data has shape (batch_size, seq_len, self.data_dim)
+        batch_size = sdo.shape[0]
+        seq_len = sdo.shape[1]
+        channels = sdo.shape[2]
+        size = sdo.shape[3]
+        sdo = sdo.reshape(batch_size*seq_len, channels, size, size)
+        sdo = self.sdo_embedding(sdo)
+        sdo = sdo.view(batch_size, seq_len, -1)
+        x = torch.cat([sdo, data], dim=-1)
+        _, self.hidden_predict = self.lstm_context(x, self.hidden_context)
+
+    def forward(self, x):
+        x, self.hidden_predict = self.lstm_predict(x, self.hidden_predict)
+        x = self.dropout1(x)
         x = torch.relu(x)
         x = self.fc1(x)
-        x = torch.relu(x)
         return x
 
+    def predict(self, context_sdo, context_data, prediction_window):
+        batch_size = context_sdo.shape[0]
+        # context_length = context.shape[1]
+        # print('Running model with context shape: {}'.format(context.shape))
+        self.init(batch_size)
+        self.forward_context(context_sdo, context_data)
+        x = context_data[:, -1, :].unsqueeze(1) # prepend the prediction values with the last context input
+        prediction = [x]
+        for _ in range(prediction_window):
+            x = self.forward(x)
+            prediction.append(x)
+        prediction = torch.cat(prediction, dim=1)
+        return prediction
 
 
 # class RadTransformer

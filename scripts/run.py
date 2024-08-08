@@ -18,8 +18,8 @@ import traceback
 import matplotlib.animation as animation
 import glob
 
-from datasets import SDOMLlite, RadLab, GOESXRS, Sequences, ConcatDataset
-from models import RadRecurrent
+from datasets import SDOMLlite, RadLab, GOESXRS, GOESSGPS, Sequences, ConcatDataset
+from models import RadRecurrent, RadRecurrentWithSDO
 from events import EventCatalog
 
 matplotlib.use('Agg')
@@ -49,21 +49,42 @@ class Tee(object):
 
 def save_model(model, optimizer, epoch, iteration, train_losses, valid_losses, file_name):
     print('Saving model to {}'.format(file_name))
-    checkpoint = {
-        'model': 'RadRecurrent',
-        'epoch': epoch,
-        'iteration': iteration,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'train_losses': train_losses,
-        'valid_losses': valid_losses,
-        'model_context_window': model.context_window,
-        'model_prediction_window': model.prediction_window,
-        'model_data_dim': model.data_dim,
-        'model_lstm_dim': model.lstm_dim,
-        'model_lstm_depth': model.lstm_depth,
-        'model_dropout': model.dropout
-    }
+    if isinstance(model, RadRecurrent):
+        checkpoint = {
+            'model': 'RadRecurrent',
+            'epoch': epoch,
+            'iteration': iteration,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_losses': train_losses,
+            'valid_losses': valid_losses,
+            'model_context_window': model.context_window,
+            'model_prediction_window': model.prediction_window,
+            'model_data_dim': model.data_dim,
+            'model_lstm_dim': model.lstm_dim,
+            'model_lstm_depth': model.lstm_depth,
+            'model_dropout': model.dropout
+        }
+    elif isinstance(model, RadRecurrentWithSDO):
+        checkpoint = {
+            'model': 'RadRecurrentWithSDO',
+            'epoch': epoch,
+            'iteration': iteration,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'train_losses': train_losses,
+            'valid_losses': valid_losses,
+            'model_context_window': model.context_window,
+            'model_prediction_window': model.prediction_window,
+            'model_data_dim': model.data_dim,
+            'model_lstm_dim': model.lstm_dim,
+            'model_lstm_depth': model.lstm_depth,
+            'model_dropout': model.dropout,
+            'model_sdo_channels': model.sdo_channels,
+            'model_sdo_dim': model.sdo_dim
+        }
+    else:
+        raise ValueError('Unknown model type: {}'.format(model))
     torch.save(checkpoint, file_name)
 
 
@@ -77,16 +98,28 @@ def load_model(file_name, device):
         model_lstm_depth = checkpoint['model_lstm_depth']
         model_dropout = checkpoint['model_dropout']
         model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model = model.to(device)
-        optimizer = optim.Adam(model.parameters())
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        epoch = checkpoint['epoch']
-        iteration = checkpoint['iteration']
-        train_losses = checkpoint['train_losses']
-        valid_losses = checkpoint['valid_losses']
+    elif checkpoint['model'] == 'RadRecurrentWithSDO':
+        model_context_window = checkpoint['model_context_window']
+        model_prediction_window = checkpoint['model_prediction_window']
+        model_data_dim = checkpoint['model_data_dim']
+        model_lstm_dim = checkpoint['model_lstm_dim']
+        model_lstm_depth = checkpoint['model_lstm_depth']
+        model_dropout = checkpoint['model_dropout']
+        model_sdo_channels = checkpoint['model_sdo_channels']
+        model_sdo_dim = checkpoint['model_sdo_dim']
+        model = RadRecurrentWithSDO(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window, sdo_channels=model_sdo_channels, sdo_dim=model_sdo_dim)
     else:
         raise ValueError('Unknown model type: {}'.format(checkpoint['model']))
+
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.to(device)
+    optimizer = optim.Adam(model.parameters())
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    epoch = checkpoint['epoch']
+    iteration = checkpoint['iteration']
+    train_losses = checkpoint['train_losses']
+    valid_losses = checkpoint['valid_losses']
+
     return model, optimizer, epoch, iteration, train_losses, valid_losses
 
 
@@ -197,37 +230,21 @@ def save_test_plot(context_dates, prediction_dates, training_prediction_window_e
     return ylims
 
 
-
-def run_model(model, context, prediction_window):
-    batch_size = context.shape[0]
-    # context_length = context.shape[1]
-    # print('Running model with context shape: {}'.format(context.shape))
-    model.init(batch_size)
-    context_input = context
-    prediction = [context_input[:, -1, :].unsqueeze(1)] # prepend the prediction values with the last context input
-    context_output = model(context_input)
-    x = context_output[:, -1, :].unsqueeze(1)
-    for _ in range(prediction_window):
-        prediction.append(x)
-        x = model(x)
-    prediction = torch.cat(prediction, dim=1)
-    return prediction
-
-
 def run_test(model, date_start, date_end, file_prefix, title, args):
-    # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+    data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
     # predict start
 
     context_start = date_start - datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
+    dataset_sdo = SDOMLlite(data_dir_sdo, date_start=context_start, date_end=date_end)
     dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=context_start, date_end=date_end)
     dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=context_start, date_end=date_end)
-    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=model.context_window)
+    dataset_sequences = Sequences([dataset_sdo, dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=model.context_window)
 
     context_sequence = dataset_sequences[0]
-    context_dates = [datetime.datetime.fromisoformat(d) for d in context_sequence[2]]
+    context_dates = [datetime.datetime.fromisoformat(d) for d in context_sequence[3]]
     if context_start != context_dates[0]:
         print('context start adjusted from {} to {} (due to data availability)'.format(context_start, context_dates[0]))
     context_start = context_dates[0]
@@ -235,11 +252,15 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
     prediction_window = int((date_end - context_end).total_seconds() / (args.delta_minutes * 60))
 
-    context_goesxrs = context_sequence[0][:model.context_window].unsqueeze(1).to(args.device)
-    context_biosentinel = context_sequence[1][:model.context_window].unsqueeze(1).to(args.device)
-    context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
-    context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-    prediction_batch = run_model(model, context_batch, prediction_window).detach()
+    context_sdo = context_sequence[0][:model.context_window].unsqueeze(1).to(args.device)
+    context_sdo_batch = context_sdo.unsqueeze(0).repeat(args.num_samples, 1, 1)
+
+    context_goesxrs = context_sequence[1][:model.context_window].unsqueeze(1).to(args.device)
+    context_biosentinel = context_sequence[2][:model.context_window].unsqueeze(1).to(args.device)
+    context_data = torch.cat([context_goesxrs, context_biosentinel], dim=1)
+    context_data_batch = context_data.unsqueeze(0).repeat(args.num_samples, 1, 1)
+    
+    prediction_batch = model.predict(context_sdo_batch, context_data_batch, prediction_window).detach()
 
     prediction_date_start = context_end
     prediction_dates = [prediction_date_start + datetime.timedelta(minutes=i*args.delta_minutes) for i in range(prediction_window + 1)]
@@ -267,20 +288,21 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
 
 
 def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims, args):
-    # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+    data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
     data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
     data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
     full_start = date_start - datetime.timedelta(minutes=(model.context_window - 1) * args.delta_minutes)
     full_end = date_end
+    dataset_sdo = SDOMLlite(data_dir_sdo, date_start=full_start, date_end=date_end)
     dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=full_start, date_end=date_end)
     dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=full_start, date_end=date_end)
-    full_start = max(dataset_goes_xrs.date_start, dataset_biosentinel.date_start) # need to reassign because data availability may change the start date
+    full_start = max(dataset_sdo.date_start, dataset_goes_xrs.date_start, dataset_biosentinel.date_start) # need to reassign because data availability may change the start date
     time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
-    dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
+    dataset_sequences = Sequences([dataset_sdo, dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
 
     full_sequence = dataset_sequences[0]
-    full_dates = [datetime.datetime.fromisoformat(d) for d in full_sequence[2]]
+    full_dates = [datetime.datetime.fromisoformat(d) for d in full_sequence[3]]
     if full_start != full_dates[0]:
         print('full start adjusted from {} to {} (due to data availability)'.format(full_start, full_dates[0]))
     full_start = full_dates[0]
@@ -297,7 +319,7 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
     biosentinel_ground_truth_values = dataset_biosentinel.unnormalize_data(biosentinel_ground_truth_values)
 
 
-    fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 10), height_ratios=[1,1])
+    fig, axs = plt.subplot_mosaic([['biosentinel'],['goesxrs']], figsize=(20, 12.5), height_ratios=[1,1])
 
     prediction_alpha = 0.08
     prediction_mean_alpha = 0.66
@@ -386,11 +408,15 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
             # prediction_end_date = full_dates[prediction_end]
             training_prediction_end_date = prediction_start_date + datetime.timedelta(minutes=model.prediction_window * args.delta_minutes)
 
-            context_goesxrs = full_sequence[0][context_start:context_end+1].unsqueeze(1).to(args.device)
-            context_biosentinel = full_sequence[1][context_start:context_end+1].unsqueeze(1).to(args.device)
-            context = torch.cat([context_goesxrs, context_biosentinel], dim=1)
-            context_batch = context.unsqueeze(0).repeat(args.num_samples, 1, 1)
-            prediction_batch = run_model(model, context_batch, prediction_window).detach()
+            context_sdo = full_sequence[0][context_start:context_end+1].unsqueeze(1).to(args.device)
+            context_sdo_batch = context_sdo.unsqueeze(0).repeat(args.num_samples, 1, 1)
+
+            context_goesxrs = full_sequence[1][context_start:context_end+1].unsqueeze(1).to(args.device)
+            context_biosentinel = full_sequence[2][context_start:context_end+1].unsqueeze(1).to(args.device)
+            context_data = torch.cat([context_goesxrs, context_biosentinel], dim=1)
+            context_data_batch = context_data.unsqueeze(0).repeat(args.num_samples, 1, 1)
+
+            prediction_batch = model.predict(context_sdo_batch, context_data_batch, prediction_window).detach()
             goesxrs_predictions = prediction_batch[:, :, 0]
             biosentinel_predictions = prediction_batch[:, :, 1]
             goesxrs_predictions = dataset_goes_xrs.unnormalize_data(goesxrs_predictions).cpu().numpy()
@@ -476,6 +502,7 @@ def main():
     parser.add_argument('--valid_proportion', type=float, default=0.05, help='Validation frequency in iterations')
     parser.add_argument('--device', type=str, default='cpu', help='Device')
     parser.add_argument('--lstm_depth', type=int, default=2, help='LSTM depth')
+    parser.add_argument('--model_type', type=str, choices=['RadRecurrent', 'RadRecurrentWithSDO'], default='RadRecurrentWithSDO', help='Model type')
     parser.add_argument('--mode', type=str, choices=['train', 'test'], help='Mode', required=True)
     parser.add_argument('--date_start', type=str, default='2022-11-16T11:00:00', help='Start date')
     parser.add_argument('--date_end', type=str, default='2024-05-14T09:15:00', help='End date')
@@ -506,7 +533,7 @@ def main():
         device = torch.device(args.device)
 
 
-        # data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
+        data_dir_sdo = os.path.join(args.data_dir, args.sdo_dir)
         data_dir_goes_xrs = os.path.join(args.data_dir, args.goes_xrs_file)
         data_dir_radlab = os.path.join(args.data_dir, args.radlab_file)
 
@@ -517,8 +544,11 @@ def main():
             training_sequence_length = args.context_window + args.prediction_window
 
             print('Processing excluded dates')
+            if args.model_type == 'RadRecurrentWithSDO':
+                datasets_sdo_valid = []
             datasets_goes_xrs_valid = []
             datasets_biosentinel_valid = []
+
             date_exclusions = []
             if args.test_event_id is not None:
                 for event_id in args.test_event_id:
@@ -529,22 +559,31 @@ def main():
                     exclusion_start = datetime.datetime.fromisoformat(exclusion_start)
                     exclusion_end = datetime.datetime.fromisoformat(exclusion_end)
                     date_exclusions.append((exclusion_start, exclusion_end))
+
+                    if args.model_type == 'RadRecurrentWithSDO':
+                        datasets_sdo_valid.append(SDOMLlite(data_dir_sdo, date_start=exclusion_start, date_end=exclusion_end))
                     datasets_goes_xrs_valid.append(GOESXRS(data_dir_goes_xrs, date_start=exclusion_start, date_end=exclusion_end))
                     datasets_biosentinel_valid.append(RadLab(data_dir_radlab, instrument='BPD', date_start=exclusion_start, date_end=exclusion_end))
 
+            if args.model_type == 'RadRecurrentWithSDO':
+                dataset_sdo_valid = ConcatDataset(datasets_sdo_valid)
             dataset_goes_xrs_valid = ConcatDataset(datasets_goes_xrs_valid)
             dataset_biosentinel_valid = ConcatDataset(datasets_biosentinel_valid)
-            dataset_sequences_valid = Sequences([dataset_goes_xrs_valid, dataset_biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
+
+            if args.model_type == 'RadRecurrentWithSDO':
+                dataset_sequences_valid = Sequences([dataset_sdo_valid, dataset_goes_xrs_valid, dataset_biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
+            else:
+                dataset_sequences_valid = Sequences([dataset_goes_xrs_valid, dataset_biosentinel_valid], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
 
             # For training and validation
-            # dataset_sdo = SDOMLlite(data_dir_sdo, date_exclusions=date_exclusions)
+            if args.model_type == 'RadRecurrentWithSDO':
+                dataset_sdo = SDOMLlite(data_dir_sdo, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_goes_xrs = GOESXRS(data_dir_goes_xrs, date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
             dataset_biosentinel = RadLab(data_dir_radlab, instrument='BPD', date_start=args.date_start, date_end=args.date_end, date_exclusions=date_exclusions)
-            # dataset_sequences = Sequences([dataset_sdo, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=args.sequence_length)
-            dataset_sequences_train = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
-
-
-
+            if args.model_type == 'RadRecurrentWithSDO':
+                dataset_sequences_train = Sequences([dataset_sdo, dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
+            else:
+                dataset_sequences_train = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=training_sequence_length)
 
             # Split sequences into train and validation
             # valid_size = int(args.valid_proportion * len(dataset_sequences))
@@ -564,25 +603,38 @@ def main():
                 model_file = model_files[-1]
                 print('Resuming training from model file: {}'.format(model_file))
                 model, optimizer, epoch, iteration, train_losses, valid_losses = load_model(model_file, device)
-                model_data_dim = model.data_dim
-                model_lstm_dim = model.lstm_dim
-                model_lstm_depth = model.lstm_depth
-                model_dropout = model.dropout
-                model_context_window = model.context_window
-                model_prediction_window = model.prediction_window
+                # model_data_dim = model.data_dim
+                # model_lstm_dim = model.lstm_dim
+                # model_lstm_depth = model.lstm_depth
+                # model_dropout = model.dropout
+                # model_context_window = model.context_window
+                # model_prediction_window = model.prediction_window
                 epoch_start = epoch + 1
                 iteration = iteration + 1
                 print('Next epoch    : {:,}'.format(epoch_start+1))
                 print('Next iteration: {:,}'.format(iteration+1))
             else:
-                print('Creating new model')
-                model_data_dim = 2
-                model_lstm_dim = 1024
-                model_lstm_depth = args.lstm_depth
-                model_dropout = 0.2
-                model_context_window = args.context_window
-                model_prediction_window = args.prediction_window
-                model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
+                if args.model_type == 'RadRecurrent':
+                    model_data_dim = 2
+                    model_lstm_dim = 1024
+                    model_lstm_depth = args.lstm_depth
+                    model_dropout = 0.2
+                    model_context_window = args.context_window
+                    model_prediction_window = args.prediction_window
+                    model = RadRecurrent(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, context_window=model_context_window, prediction_window=model_prediction_window)
+                elif args.model_type == 'RadRecurrentWithSDO':
+                    model_data_dim = 2
+                    model_lstm_dim = 1024
+                    model_lstm_depth = args.lstm_depth
+                    model_dropout = 0.2
+                    model_sdo_dim = 1024
+                    model_sdo_channels = 6
+                    model_context_window = args.context_window
+                    model_prediction_window = args.prediction_window
+                    model = RadRecurrentWithSDO(data_dim=model_data_dim, lstm_dim=model_lstm_dim, lstm_depth=model_lstm_depth, dropout=model_dropout, sdo_channels=model_sdo_channels, sdo_dim=model_sdo_dim, context_window=model_context_window, prediction_window=model_prediction_window)
+                else:
+                    raise ValueError('Unknown model type: {}'.format(args.model_type))
+                
                 optimizer = optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
                 iteration = 0
                 epoch_start = 0
@@ -600,21 +652,50 @@ def main():
                 print('*** Training')
                 model.train()
                 with tqdm(total=len(train_loader)) as pbar:
-                    for i, (goesxrs, biosentinel, _) in enumerate(train_loader):
-                        batch_size = goesxrs.shape[0]
-
-                        goesxrs = goesxrs.to(device)
-                        biosentinel = biosentinel.to(device)
-                        goesxrs = goesxrs.unsqueeze(-1)
-                        biosentinel = biosentinel.unsqueeze(-1)
-                        data = torch.cat([goesxrs, biosentinel], dim=2)
+                    for i, batch in enumerate(train_loader):
                         
-                        input = data[:, :-1]
-                        target = data[:, 1:]
-                       
-                        model.init(batch_size)
-                        optimizer.zero_grad()
-                        output = model(input)
+                        if args.model_type == 'RadRecurrentWithSDO':
+                            (sdo, goesxrs, biosentinel, _) = batch
+                            batch_size = goesxrs.shape[0]
+
+                            sdo = sdo.to(device)
+                            goesxrs = goesxrs.to(device)
+                            biosentinel = biosentinel.to(device)
+                            goesxrs = goesxrs.unsqueeze(-1)
+                            biosentinel = biosentinel.unsqueeze(-1)
+                            data = torch.cat([goesxrs, biosentinel], dim=2)
+
+                            context_sdo = sdo[:, :model.context_window]
+                            context_data = data[:, :model.context_window]
+
+                            input = data[:, model.context_window:-1]
+                            target = data[:, model.context_window+1:]
+
+                            model.init(batch_size)
+                            optimizer.zero_grad()
+                            model.forward_context(context_sdo, context_data)
+                            output = model.forward(input)
+
+
+                        elif args.model_type == 'RadRecurrent':
+                            (goesxrs, biosentinel, _) = batch
+                            batch_size = goesxrs.shape[0]
+
+                            goesxrs = goesxrs.to(device)
+                            biosentinel = biosentinel.to(device)
+                            goesxrs = goesxrs.unsqueeze(-1)
+                            biosentinel = biosentinel.unsqueeze(-1)
+                            data = torch.cat([goesxrs, biosentinel], dim=2)
+                            
+                            input = data[:, :-1]
+                            target = data[:, 1:]
+                        
+                            model.init(batch_size)
+                            optimizer.zero_grad()
+                            output = model(input)
+                        else:
+                            raise ValueError('Unknown model type: {}'.format(args.model_type))
+                        
                         loss = torch.nn.functional.mse_loss(output, target)
                         loss.backward()
                         optimizer.step()
