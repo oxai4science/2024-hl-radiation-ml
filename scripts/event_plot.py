@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-import matplotlib.dates as mdates
+import matplotlib.dates
 import sunpy.visualization.colormaps as sunpycm
 
 from tqdm import tqdm
@@ -121,19 +121,21 @@ def main():
 
         sdo = SDOMLlite(data_dir_sdo, channels=channels, date_start=date_start, date_end=date_end)
         biosentinel = RadLab(data_dir_radlab, instrument='BPD', normalize=False)
-        crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
-        goessgps = GOESSGPS(data_dir_goes_sgps, normalize=False)
-        # rstnradio = RSTNRadio(data_dir_rstn_radio, normalize=False)
+        # crater = RadLab(data_dir_radlab, instrument='CRaTER-D1D2', normalize=False)
+        goessgps10 = GOESSGPS(data_dir_goes_sgps, normalize=False, column='>10MeV')
+        goessgps100 = GOESSGPS(data_dir_goes_sgps, normalize=False, column='>100MeV')
         goesxrs = GOESXRS(data_dir_goes_xrs, normalize=False)
 
         file_name = os.path.join(args.target_dir, file_name)
 
         fig, axs = plt.subplot_mosaic([['hmi_m', 'aia_0131', 'aia_0171', 'aia_0193', 'aia_0211', 'aia_1600'],
                                     ['biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel', 'biosentinel'],
-                                    ['crater', 'crater', 'crater', 'crater', 'crater', 'crater'],
-                                    ['goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps', 'goessgps'],
+                                    ['goessgps10', 'goessgps10', 'goessgps10', 'goessgps10', 'goessgps10', 'goessgps10'],
+                                    ['goessgps100', 'goessgps100', 'goessgps100', 'goessgps100', 'goessgps100', 'goessgps100'],
                                     ['goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs', 'goesxrs']
-                                    ], figsize=(20, 10), height_ratios=[2, 1, 1, 1, 1])
+                                    ], figsize=(20, 10), height_ratios=[2.5, 1, 1, 1, 1])
+
+        hours_locator = matplotlib.dates.HourLocator(interval=1)
 
         vmin = {}
         vmax = {}
@@ -156,67 +158,69 @@ def main():
             ims[c] = im
 
         ax = axs['biosentinel']
-        ax.set_title('Biosentinel BPD')
-        ax.set_ylabel('Absorbed dose rate\n[μGy/min]')
+        # ax.set_title('Biosentinel absorbed dose rate')
+        ax.text(0.005, 0.96, 'BioSentinel absorbed dose rate', ha='left', va='top', transform=ax.transAxes, fontsize=12)
+        ax.set_ylabel('μGy/min')
         ax.yaxis.set_label_position("right")
         bio_dates, bio_values = biosentinel.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         if bio_dates is not None:
             ax.plot(bio_dates, bio_values, color='blue', alpha=0.75)
-        # ax.tick_params(rotation=45)
+        ax.xaxis.set_minor_locator(hours_locator)
+        ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+        ax.grid(color='lightgray', zorder=0, which='major')
         ax.set_xticklabels([])
-        ax.grid(color='#f0f0f0', zorder=0)
         ax.set_yscale('log')
-        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
         ims['biosentinel'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
-        ax = axs['crater']
-        ax.set_title('CRaTER-D1D2')
-        ax.set_ylabel('Absorbed dose rate\n[μGy/h]')
+        ax = axs['goessgps10']
+        # ax.set_title('GOES SGPS proton flux (>10MeV)')
+        ax.text(0.005, 0.96, 'GOES SGPS proton flux (>10MeV)', ha='left', va='top', transform=ax.transAxes, fontsize=12)
+        ax.set_ylabel('part./(cm^2 s sr)')
         ax.yaxis.set_label_position("right")
-        crater_dates, crater_values = crater.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-        if crater_dates is not None:
-            ax.plot(crater_dates, crater_values, color='green', alpha=0.75)
-        # ax.tick_params(rotation=45)
+        goessgps10_dates, goessgps10_values = goessgps10.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        if goessgps10_dates is not None:
+            ax.plot(goessgps10_dates, goessgps10_values, color='darkred', alpha=0.75)
+        ax.xaxis.set_minor_locator(hours_locator)
+        ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+        ax.grid(color='lightgray', zorder=0, which='major')
         ax.set_xticks(axs['biosentinel'].get_xticks())
         ax.set_xlim(axs['biosentinel'].get_xlim()) 
         ax.set_xticklabels([])
-        ax.grid(color='#f0f0f0', zorder=0)
         ax.set_yscale('log')
-        # myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
-        # ax.xaxis.set_major_formatter(myFmt)
-        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-        ims['crater'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+        ims['goessgps10'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
-        ax = axs['goessgps']
-        ax.set_title('GOES SGPS')
-        ax.set_ylabel('Proton flux\n[particles / (cm^2 . s . sr)]')
+        ax = axs['goessgps100']
+        # ax.set_title('GOES SGPS proton flux (>10MeV)')
+        ax.text(0.005, 0.96, 'GOES SGPS proton flux (>100MeV)', ha='left', va='top', transform=ax.transAxes, fontsize=12)
+        ax.set_ylabel('part./(cm^2 s sr)')
         ax.yaxis.set_label_position("right")
-        goes_dates, goes_values = goessgps.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
-        if goes_dates is not None:
-            ax.plot(goes_dates, goes_values, color='purple', alpha=0.75)
-        # ax.tick_params(rotation=45)
+        goessgps100_dates, goessgps100_values = goessgps100.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
+        if goessgps100_dates is not None:
+            ax.plot(goessgps100_dates, goessgps100_values, color='green', alpha=0.75)
+        ax.xaxis.set_minor_locator(hours_locator)
+        ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+        ax.grid(color='lightgray', zorder=0, which='major')
         ax.set_xticks(axs['biosentinel'].get_xticks())
-        ax.set_xlim(axs['biosentinel'].get_xlim())
-        ax.grid(color='#f0f0f0', zorder=0)
+        ax.set_xlim(axs['biosentinel'].get_xlim()) 
+        ax.set_xticklabels([])
         ax.set_yscale('log')
-        myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
-        ax.xaxis.set_major_formatter(myFmt)
-        # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
-        ims['goessgps'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
+        ims['goessgps100'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
 
         ax = axs['goesxrs']
-        ax.set_title('GOES XRS')
-        ax.set_ylabel('X-ray flux\n[W/m^2]')
+        # ax.set_title('GOES XRS X-ray flux')
+        ax.text(0.005, 0.96, 'GOES XRS X-ray flux', ha='left', va='top', transform=ax.transAxes, fontsize=12)
+        ax.set_ylabel('W/m^2')
         ax.yaxis.set_label_position("right")
         goes_dates, goes_values = goesxrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
         if goes_dates is not None:
             ax.plot(goes_dates, goes_values, color='purple', alpha=0.75)
-        # ax.tick_params(rotation=45)
+        ax.xaxis.set_minor_locator(hours_locator)
+        ax.grid(color='#f0f0f0', zorder=0, which='minor', axis='x')
+        ax.grid(color='lightgray', zorder=0, which='major')
         ax.set_xticks(axs['biosentinel'].get_xticks())
         ax.set_xlim(axs['biosentinel'].get_xlim())
-        ax.grid(color='#f0f0f0', zorder=0)
         ax.set_yscale('log')
-        myFmt = mdates.DateFormatter('%Y-%m-%d %H:%M')
+        myFmt = matplotlib.dates.DateFormatter('%Y-%m-%d %H:%M')
         ax.xaxis.set_major_formatter(myFmt)
         # ax.xaxis.set_major_locator(plt.MaxNLocator(num_ticks))
         ims['goesxrs'] = ax.axvline(date_start, color='black', linestyle='-', linewidth=1)
@@ -232,9 +236,10 @@ def main():
 
                 title.set_text(title_prefix + str(date))
                 ims['biosentinel'].set_xdata([date, date])
-                ims['crater'].set_xdata([date, date])
+                # ims['crater'].set_xdata([date, date])
                 # ims['rstnradio'].set_xdata([date, date])
-                ims['goessgps'].set_xdata([date, date])
+                ims['goessgps10'].set_xdata([date, date])
+                ims['goessgps100'].set_xdata([date, date])
                 ims['goesxrs'].set_xdata([date, date])
 
                 sdo_data, _ = sdo[date]

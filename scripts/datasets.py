@@ -375,35 +375,39 @@ class GOESXRS(PandasDataset):
 
 # Data units: particles / (cm^2 . s . sr)
 class GOESSGPS(PandasDataset):
-    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
-        print('\nGOES Solar and Galactic Proton Sensors (SGPS)')
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None, column='>10MeV'):
+        print('\nGOES Solar and Galactic Proton Sensors (SGPS) ({})'.format(column))
         print('File                 : {}'.format(file_name))
         delta_minutes = 1
+
+        if column != '>10MeV' and column != '>100MeV':
+            raise ValueError('Unsupported column: {}'.format(column))
+        self.column = column
 
         data = pd.read_csv(file_name)
         data['datetime'] = pd.to_datetime(data['datetime'])
         # data = data.sort_values(by='datetime')
         print('Rows                 : {:,}'.format(len(data)))
 
-        data = data[data['AvgDiffProtonFlux'] > 0]
+        # data = data[data['AvgDiffProtonFlux'] > 0]
 
-        super().__init__('GOES Solar and Galactic Proton Sensors (SGPS)', data, 'AvgDiffProtonFlux', delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
+        super().__init__('GOES Solar and Galactic Proton Sensors (SGPS)', data, column, delta_minutes, date_start, date_end, normalize, rewind_minutes, date_exclusions)
 
     def normalize_data(self, data):
-        data = torch.log(data + 1e-8)
-        mean_log_data = -6.167838096618652
-        std_log_data = 2.073496103286743
-        data = data - mean_log_data
-        data = data / std_log_data
-        return data
+        if self.column == '>10MeV':
+            return data
+        elif self.column == '>100MeV':
+            return data
+        else:
+            raise ValueError('Unsupported column: {}'.format(self.column))
     
     def unnormalize_data(self, data):
-        mean_log_data = -6.167838096618652
-        std_log_data = 2.073496103286743
-        data = data * std_log_data
-        data = data + mean_log_data
-        data = torch.exp(data) - 1e-8
-        return data
+        if self.column == '>10MeV':
+            return data
+        elif self.column == '>100MeV':
+            return data
+        else:
+            raise ValueError('Unsupported column: {}'.format(self.column))
 
 
 def cube_root(x):
