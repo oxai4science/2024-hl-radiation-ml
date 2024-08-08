@@ -243,10 +243,14 @@ def run_test(model, date_start, date_end, file_prefix, title, args):
     if isinstance(model, RadRecurrentWithSDO):
         dataset_sdo = SDOMLlite(data_dir_sdo, date_start=context_start, date_end=date_end)
         dataset_sequences = Sequences([dataset_sdo, dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=model.context_window)
+        if len(dataset_sequences) == 0:
+            return
         context_sequence = dataset_sequences[0]
         context_dates = [datetime.datetime.fromisoformat(d) for d in context_sequence[3]]
     elif isinstance(model, RadRecurrent):
         dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=model.context_window)
+        if len(dataset_sequences) == 0:
+            return
         context_sequence = dataset_sequences[0]
         context_dates = [datetime.datetime.fromisoformat(d) for d in context_sequence[2]]
     else:
@@ -315,12 +319,16 @@ def run_test_video(model, date_start, date_end, file_prefix, title_prefix, ylims
         full_start = max(dataset_sdo.date_start, dataset_goes_xrs.date_start, dataset_biosentinel.date_start) # need to reassign because data availability may change the start date
         time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
         dataset_sequences = Sequences([dataset_sdo, dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
+        if len(dataset_sequences) == 0:
+            return
         full_sequence = dataset_sequences[0]
         full_dates = [datetime.datetime.fromisoformat(d) for d in full_sequence[3]]
     elif isinstance(model, RadRecurrent):
         full_start = max(dataset_goes_xrs.date_start, dataset_biosentinel.date_start)
         time_steps = int((full_end - full_start).total_seconds() / (args.delta_minutes * 60))
         dataset_sequences = Sequences([dataset_goes_xrs, dataset_biosentinel], delta_minutes=args.delta_minutes, sequence_length=time_steps)
+        if len(dataset_sequences) == 0:
+            return
         full_sequence = dataset_sequences[0]
         full_dates = [datetime.datetime.fromisoformat(d) for d in full_sequence[2]]
     else:

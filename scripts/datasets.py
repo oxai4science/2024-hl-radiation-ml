@@ -158,7 +158,7 @@ class SDOMLlite(Dataset):
 
 
 class PandasDataset(Dataset):
-    def __init__(self, name, data_frame, column, delta_minutes, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+    def __init__(self, name, data_frame, column, delta_minutes, date_start=None, date_end=None, normalize=True, rewind_minutes=15, date_exclusions=None):
         self.name = name
         self.data = data_frame
         self.column = column
@@ -354,7 +354,7 @@ class ConcatDataset(Dataset):
 
 
 class GOESXRS(PandasDataset):
-    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=15, date_exclusions=None):
         print('\nGOES X-ray Sensor (XRS)')
         print('File                 : {}'.format(file_name))
         delta_minutes = 1
@@ -387,7 +387,7 @@ class GOESXRS(PandasDataset):
 
 # Data units: particles / (cm^2 . s . sr)
 class GOESSGPS(PandasDataset):
-    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None, column='>10MeV'):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=15, date_exclusions=None, column='>10MeV'):
         print('\nGOES Solar and Galactic Proton Sensors (SGPS) ({})'.format(column))
         print('File                 : {}'.format(file_name))
         delta_minutes = 1
@@ -427,7 +427,7 @@ def cube_root(x):
 
 
 class RSTNRadio(PandasDataset):
-    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+    def __init__(self, file_name, date_start=None, date_end=None, normalize=True, rewind_minutes=15, date_exclusions=None):
         print('\nRadio Solar Telescope Network (RSTN) Solar Radio Burst')
         print('File                 : {}'.format(file_name))
         delta_minutes = 1
@@ -464,7 +464,7 @@ class RSTNRadio(PandasDataset):
 
 # BioSentinel: 2022-11-16T11:00:00 - 2024-05-14T09:15:00
 class RadLab(PandasDataset):
-    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=5, date_exclusions=None):
+    def __init__(self, file_name, instrument='BPD', date_start=None, date_end=None, normalize=True, rewind_minutes=15, date_exclusions=None):
         self.instrument = instrument
         name = 'RadLab ({})'.format(self.instrument)
         print('\n{}'.format(name))
@@ -580,7 +580,7 @@ class Sequences(Dataset):
 
         self.sequences = self.find_sequences()
         if len(self.sequences) == 0:
-            raise ValueError('No sequences found')
+            print('**** No sequences found ****')
         print('Number of sequences     : {:,}'.format(len(self.sequences)))
         print('First sequence          : {}'.format([date.isoformat() for date in self.sequences[0]]))
         print('Last sequence           : {}'.format([date.isoformat() for date in self.sequences[-1]]))
