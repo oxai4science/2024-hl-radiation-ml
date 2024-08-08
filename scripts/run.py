@@ -685,7 +685,7 @@ def main():
                 with tqdm(total=len(train_loader)) as pbar:
                     for i, batch in enumerate(train_loader):
                         
-                        if args.model_type == 'RadRecurrentWithSDO':
+                        if isinstance(model, RadRecurrentWithSDO):
                             (sdo, goesxrs, biosentinel, _) = batch
                             batch_size = goesxrs.shape[0]
 
@@ -708,7 +708,7 @@ def main():
                             output = model.forward(input)
 
 
-                        elif args.model_type == 'RadRecurrent':
+                        elif isinstance(model, RadRecurrent):
                             (goesxrs, biosentinel, _) = batch
                             batch_size = goesxrs.shape[0]
 
@@ -725,7 +725,7 @@ def main():
                             optimizer.zero_grad()
                             output = model(input)
                         else:
-                            raise ValueError('Unknown model type: {}'.format(args.model_type))
+                            raise ValueError('Unknown model type: {}'.format(model))
                         
                         loss = torch.nn.functional.mse_loss(output, target)
                         loss.backward()
@@ -746,7 +746,7 @@ def main():
                     with tqdm(total=len(valid_loader), desc='Validation') as pbar:
                         for batch in valid_loader:
                             
-                            if args.model_type == 'RadRecurrentWithSDO':
+                            if isinstance(model, RadRecurrentWithSDO):
                                 (sdo, goesxrs, biosentinel, _) = batch
                                 batch_size = goesxrs.shape[0]
 
@@ -766,7 +766,7 @@ def main():
                                 model.init(batch_size)
                                 model.forward_context(context_sdo, context_data)
                                 output = model.forward(input)
-                            elif args.model_type == 'RadRecurrent':
+                            elif isinstance(model, RadRecurrent):
                                 (goesxrs, biosentinel, _) = batch
                                 batch_size = goesxrs.shape[0]
 
@@ -781,6 +781,8 @@ def main():
 
                                 model.init(batch_size)
                                 output = model(input)
+                            else:
+                                raise ValueError('Unknown model type: {}'.format(model))
                             
                             loss = torch.nn.functional.mse_loss(output, target)
                             valid_loss += float(loss)
