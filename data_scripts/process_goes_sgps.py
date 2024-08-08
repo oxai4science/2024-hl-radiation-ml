@@ -103,7 +103,8 @@ def read_goes_sgps_dataset(source_dir):
         dates.extend(d)
         values10.append(v10)
         values100.append(v100)
-    values = np.concatenate(values)
+    values10 = np.concatenate(values10)
+    values100 = np.concatenate(values100)
     df = pd.DataFrame({'datetime': dates, '>10MeV': values10, '>100MeV': values100})
     return df
 
