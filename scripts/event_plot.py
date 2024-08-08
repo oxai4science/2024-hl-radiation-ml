@@ -208,7 +208,7 @@ def main():
 
         ax = axs['goesxrs']
         # ax.set_title('GOES XRS X-ray flux')
-        ax.text(0.005, 0.96, 'GOES XRS X-ray flux', ha='left', va='top', transform=ax.transAxes, fontsize=12)
+        ax.text(0.005, 0.96, 'GOES XRS x-ray flux', ha='left', va='top', transform=ax.transAxes, fontsize=12)
         ax.set_ylabel('W/m^2')
         ax.yaxis.set_label_position("right")
         goes_dates, goes_values = goesxrs.get_series(date_start, date_end, delta_minutes=args.delta_minutes)
