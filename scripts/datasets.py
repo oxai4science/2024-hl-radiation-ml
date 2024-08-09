@@ -582,8 +582,9 @@ class Sequences(Dataset):
         if len(self.sequences) == 0:
             print('**** No sequences found ****')
         print('Number of sequences     : {:,}'.format(len(self.sequences)))
-        print('First sequence          : {}'.format([date.isoformat() for date in self.sequences[0]]))
-        print('Last sequence           : {}'.format([date.isoformat() for date in self.sequences[-1]]))
+        if len(self.sequences) > 0:
+            print('First sequence          : {}'.format([date.isoformat() for date in self.sequences[0]]))
+            print('Last sequence           : {}'.format([date.isoformat() for date in self.sequences[-1]]))
 
     def __len__(self):
         return len(self.sequences)
